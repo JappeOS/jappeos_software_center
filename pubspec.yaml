@@ -1,0 +1,28 @@
+name: jappeos_software_center
+description: "A GUI app for installing software for JappeOS."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0-150.0.dev
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  provider: ^6.1.5+1
+  shadcn_flutter:
+    git:
+      url: https://github.com/JappeOS/shadcn_flutter.git
+      ref: master
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+
+  uses-material-design: true
