@@ -32,6 +32,10 @@ class PageBase extends StatelessWidget {
       ),
       itemCount: itemCount,
       itemBuilder: (context, index) {
+        final built = itemBuilder(context, index);
+        if (built is Divider || built is IgnorePageBaseLayout) {
+          return built;
+        }
         return Align(
           alignment: Alignment.center,
           child: ConstrainedBox(
@@ -39,10 +43,21 @@ class PageBase extends StatelessWidget {
               minWidth: 750,
               maxWidth: 750,
             ),
-            child: itemBuilder(context, index),
+            child: built,
           ),
         );
       },
     );
+  }
+}
+
+class IgnorePageBaseLayout extends StatelessWidget {
+  final Widget child;
+
+  const IgnorePageBaseLayout({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return child;
   }
 }
