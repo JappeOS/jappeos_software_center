@@ -14,7 +14,11 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:jappeos_software_center/src/core/services/command_runner.dart';
+import 'package:jappeos_software_center/src/core/services/flatpak_service.dart';
+import 'package:jappeos_software_center/src/core/services/pacman_service.dart';
 import 'package:jappeos_software_center/src/providers/navigation_provider.dart';
+import 'package:jappeos_software_center/src/providers/installed_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -47,6 +51,17 @@ class App extends StatelessWidget {
       home: MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => NavigationProvider()),
+          ChangeNotifierProvider(
+            create: (_) {
+              const commandRunner = ProcessCommandRunner();
+              return InstalledProvider(
+                sources: [
+                  FlatpakService(commandRunner: commandRunner),
+                  PacmanService(commandRunner: commandRunner),
+                ],
+              );
+            },
+          ),
         ],
         child: MainScaffold(title: title),
       ),

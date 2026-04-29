@@ -15,7 +15,10 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/installed_provider.dart';
+import '../../providers/navigation_provider.dart';
 import '../../widgets/app_tile.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
@@ -29,39 +32,101 @@ class InstalledPage extends StatefulWidget {
 
 class _InstalledPageState extends State<InstalledPage> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<InstalledProvider>().loadIfNeeded();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final children = [
+    final installedProvider = context.watch<InstalledProvider>();
+    final apps = installedProvider.apps;
+    final children = <Widget>[
       SectionHeader(
-        title: "Installed Applications (2)",
-      ),
-      ButtonGroup(
-        direction: Axis.vertical,
-        children: [
-          AppTile(
-            icon: Icon(Icons.settings),
-            title: "Settings",
-            description: "Manage your application settings",
-            trailing: PrimaryButton(
-              child: const Text("Update"),
-              onPressed: () {},
-            ),
-            trailingText: "66 MB",
-            onPressed: () {},
-          ),
-          AppTile(
-            icon: Icon(Icons.settings),
-            title: "Settings",
-            description: "Manage your application settings",
-            trailing: PrimaryButton(
-              child: const Text("Update"),
-              onPressed: () {},
-            ),
-            trailingText: "66 MB",
-            onPressed: () {},
-          ),
-        ],
+        title: "Installed Applications (${apps.length})",
+        onViewAll: installedProvider.isLoading
+            ? null
+            : () => context.read<InstalledProvider>().refresh(),
+        actionLabel: installedProvider.isLoading ? "Refreshing..." : "Refresh",
       ),
     ];
+
+    if (installedProvider.isLoading && apps.isEmpty) {
+      children.add(
+        AppTile(
+          icon: Icon(Icons.refresh),
+          title: "Loading installed applications",
+          description: "Collecting package data from configured backends.",
+          trailing: PrimaryButton(
+            onPressed: null,
+            child: const Text("Loading"),
+          ),
+        ),
+      );
+    } else if (installedProvider.errorMessage != null && apps.isEmpty) {
+      children.add(
+        AppTile(
+          icon: Icon(Icons.warning),
+          title: "Failed to load installed applications",
+          description: installedProvider.errorMessage!,
+          trailing: PrimaryButton(
+            child: const Text("Retry"),
+            onPressed: () => context.read<InstalledProvider>().refresh(),
+          ),
+        ),
+      );
+    } else if (apps.isEmpty) {
+      children.add(
+        AppTile(
+          icon: Icon(Icons.search),
+          title: "No installed applications found",
+          description:
+              "No application packages were returned by the active backends.",
+          trailing: PrimaryButton(
+            child: const Text("Refresh"),
+            onPressed: () => context.read<InstalledProvider>().refresh(),
+          ),
+        ),
+      );
+    } else {
+      children.add(
+        ButtonGroup(
+          direction: Axis.vertical,
+          children: apps
+              .map(
+                (app) => AppTile(
+                  icon: Icon(Icons.apps),
+                  title: app.name,
+                  description: app.description,
+                  trailingText: _buildTrailingText(app.backend, app.version),
+                  trailing: PrimaryButton(
+                    onPressed: null,
+                    child: const Text("Installed"),
+                  ),
+                  onPressed: () =>
+                      context.read<NavigationProvider>().openApp(app.id),
+                ),
+              )
+              .toList(),
+        ),
+      );
+    }
+
+    if (installedProvider.errorMessage != null && apps.isNotEmpty) {
+      children.add(
+        AppTile(
+          icon: Icon(Icons.warning),
+          title: "Some sources failed to load",
+          description: installedProvider.errorMessage!,
+          trailing: PrimaryButton(
+            child: const Text("Retry"),
+            onPressed: () => context.read<InstalledProvider>().refresh(),
+          ),
+        ),
+      );
+    }
 
     return PageBase(
       itemCount: children.length,
@@ -69,5 +134,12 @@ class _InstalledPageState extends State<InstalledPage> {
         return children[index];
       },
     );
+  }
+
+  String _buildTrailingText(String backend, String? version) {
+    if (version == null || version.isEmpty) {
+      return backend;
+    }
+    return '$backend • $version';
   }
 }
