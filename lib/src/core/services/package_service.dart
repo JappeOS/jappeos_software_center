@@ -14,11 +14,15 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 
 abstract class PackageService {
+  String get sourceId;
   Future<List<AppModel>> getInstalledApps();
+  Future<AppDetailModel?> getAppDetails(String id);
   Future<void> install(String id);
   Future<void> uninstall(String id);
   Future<void> update(String id);
+  Future<void> open(String id);
 }
