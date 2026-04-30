@@ -17,7 +17,9 @@
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class ScreenshotsCarousel extends StatefulWidget {
-  const ScreenshotsCarousel({super.key});
+  final List<String> screenshots;
+
+  const ScreenshotsCarousel({super.key, required this.screenshots});
 
   @override
   State<ScreenshotsCarousel> createState() => _ScreenshotsCarouselState();
@@ -28,16 +30,29 @@ class _ScreenshotsCarouselState extends State<ScreenshotsCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.screenshots.isEmpty) {
+      return SizedBox(
+        width: 800,
+        height: 220,
+        child: OutlinedContainer(
+          child: Center(
+            child: Text('No screenshots available for this source.').muted(),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: 800,
       child: Row(
         children: [
           OutlineButton(
-              shape: ButtonShape.circle,
-              onPressed: () {
-                controller.animatePrevious(const Duration(milliseconds: 125));
-              },
-              child: const Icon(Icons.arrow_back)),
+            shape: ButtonShape.circle,
+            onPressed: () {
+              controller.animatePrevious(const Duration(milliseconds: 125));
+            },
+            child: const Icon(Icons.arrow_back),
+          ),
           const Gap(24),
           Expanded(
             child: SizedBox(
@@ -47,9 +62,29 @@ class _ScreenshotsCarouselState extends State<ScreenshotsCarousel> {
                 controller: controller,
                 sizeConstraint: const CarouselFixedConstraint(400),
                 autoplaySpeed: Duration.zero,
-                itemCount: 5,
+                itemCount: widget.screenshots.length,
                 itemBuilder: (context, index) {
-                  return Container(color: Colors.red);
+                  final screenshot = widget.screenshots[index];
+                  return OutlinedContainer(
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      screenshot,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) {
+                          return child;
+                        }
+                        return Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text('Failed to load screenshot').muted(),
+                        );
+                      },
+                    ),
+                  );
                 },
                 duration: const Duration(seconds: 1),
               ),
@@ -57,11 +92,12 @@ class _ScreenshotsCarouselState extends State<ScreenshotsCarousel> {
           ),
           const Gap(24),
           OutlineButton(
-              shape: ButtonShape.circle,
-              onPressed: () {
-                controller.animateNext(const Duration(milliseconds: 125));
-              },
-              child: const Icon(Icons.arrow_forward)),
+            shape: ButtonShape.circle,
+            onPressed: () {
+              controller.animateNext(const Duration(milliseconds: 125));
+            },
+            child: const Icon(Icons.arrow_forward),
+          ),
         ],
       ),
     );
