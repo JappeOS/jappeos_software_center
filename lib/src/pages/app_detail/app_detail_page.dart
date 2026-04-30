@@ -14,10 +14,16 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../../models/app_detail_model.dart';
+import '../../models/app_model.dart';
+import '../../models/install_state.dart';
+import '../../providers/installed_provider.dart';
 import '../shared/page_base.dart';
 import 'widgets/app_header.dart';
+import 'widgets/install_button.dart';
 import 'widgets/main_header_info_button.dart';
 import 'widgets/screenshots_carousel.dart';
 
@@ -31,12 +37,125 @@ class AppDetailPage extends StatefulWidget {
 }
 
 class _AppDetailPageState extends State<AppDetailPage> {
+  bool _isLoading = true;
+  String? _error;
+  List<AppDetailModel> _details = const [];
+  int _selectedIndex = 0;
+  bool _actionInProgress = false;
+  String? _actionLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDetails();
+    });
+  }
+
+  Future<void> _loadDetails() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final details = await context.read<InstalledProvider>().getAppDetails(widget.appId);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _details = details;
+        _selectedIndex = 0;
+        _isLoading = false;
+        if (_details.isEmpty) {
+          _error = 'No detail data is available from the current package sources.';
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _error = error.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final installedProvider = context.watch<InstalledProvider>();
+
+    if (_isLoading) {
+      return PageBase(
+        itemCount: 1,
+        itemBuilder: (_, _) => AppHeader(
+          detail: _loadingDetail(widget.appId),
+          sources: const ['Loading...'],
+          onSourceChanged: (_) {},
+          installButtonState: InstallButtonState.progress,
+          progressText: 'Loading...',
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return PageBase(
+        itemCount: 1,
+        itemBuilder: (_, _) => OutlinedContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 12 * theme.scaling,
+            children: [
+              Text('Failed to load app details').x2Large(),
+              Text(_error!),
+              PrimaryButton(
+                onPressed: _loadDetails,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final selected = _details[_selectedIndex];
+    final sources = _details.map((detail) => detail.sourceLabel).toList();
+    final isInstalled = installedProvider.apps.any(
+      (app) =>
+          app.id == selected.app.id &&
+          _normalizeBackend(app.backend) == _normalizeBackend(selected.app.backend),
+    );
+    final installButtonState = _actionInProgress
+        ? InstallButtonState.progress
+        : (isInstalled ? InstallButtonState.installed : InstallButtonState.notInstalled);
+
     final children = [
       Gap(16 * theme.scaling),
-      AppHeader(),
+      AppHeader(
+        detail: selected,
+        sources: sources,
+        onSourceChanged: (source) {
+          final index = sources.indexOf(source);
+          if (index < 0) {
+            return;
+          }
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        installButtonState: installButtonState,
+        progressText: _actionLabel,
+        onInstallOrUpdate: _actionInProgress
+            ? null
+            : () => _performInstallOrUpdate(selected, isInstalled),
+        onOpen: _actionInProgress ? null : () => _performOpen(selected),
+        onUninstall: _actionInProgress ? null : () => _performUninstall(selected),
+      ),
       Gap(16 * theme.scaling),
       Divider(),
       Gap(16 * theme.scaling),
@@ -44,31 +163,33 @@ class _AppDetailPageState extends State<AppDetailPage> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           MainHeaderInfoButton(
-            label: "Size",
-            value: "10 MB",
-            onPressed: () {},
+            label: 'Installed Size',
+            value: _formatBytes(selected.installedSizeBytes),
           ),
           MainHeaderInfoButton(
-            label: "Age Rating",
-            value: "Unknown",
-            onPressed: () {},
+            label: 'Age Rating',
+            value: selected.ageRating?.isNotEmpty == true
+                ? selected.ageRating!
+                : 'Unknown',
           ),
           MainHeaderInfoButton(
-            label: "Safe to use",
-            value: "Yes",
-            onPressed: () {},
+            label: 'License',
+            value: selected.license?.isNotEmpty == true
+                ? selected.license!
+                : 'Unknown',
           ),
           MainHeaderInfoButton(
-            label: "Downloads",
-            value: "100K+",
-            onPressed: () {},
+            label: 'Downloads',
+            value: _formatDownloadCount(selected.downloadCount),
           ),
         ],
       ),
       Gap(16 * theme.scaling),
-      IgnorePageBaseLayout(child: ScreenshotsCarousel()),
+      if (selected.screenshots.isNotEmpty)
+        IgnorePageBaseLayout(
+          child: ScreenshotsCarousel(screenshots: selected.screenshots),
+        ),
       Gap(16 * theme.scaling),
-
       Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,12 +200,17 @@ class _AppDetailPageState extends State<AppDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text("Description").x3Large(),
+                Text('Description').x3Large(),
                 Gap(8 * theme.scaling),
-                Text(
-                  "This is a description of the app. It can be quite long and should wrap properly in the UI.",
-                  softWrap: true,
-                ),
+                Text(selected.longDescription, softWrap: true),
+                Gap(16 * theme.scaling),
+                if (selected.extraInfo.isNotEmpty) ...[
+                  Text('Package Details').x2Large(),
+                  Gap(8 * theme.scaling),
+                  ...selected.extraInfo.entries.map(
+                    (entry) => Text('${entry.key}: ${entry.value}'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -94,30 +220,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Gap(8 * theme.scaling),
-                LinkButton(
-                  leading: const Icon(Icons.link),
-                  trailing: const Icon(Icons.open_in_new),
-                  child: Text("Project Website", textAlign: TextAlign.start),
-                  onPressed: () {},
-                ),
-                LinkButton(
-                  leading: const Icon(Icons.code),
-                  trailing: const Icon(Icons.open_in_new),
-                  child: Text("Source Code", textAlign: TextAlign.start),
-                  onPressed: () {},
-                ),
-                LinkButton(
-                  leading: const Icon(Icons.bug_report),
-                  trailing: const Icon(Icons.open_in_new),
-                  child: Text("Report an issue", textAlign: TextAlign.start),
-                  onPressed: () {},
-                ),
-                LinkButton(
-                  leading: const Icon(Icons.help),
-                  trailing: const Icon(Icons.open_in_new),
-                  child: Text("Help", textAlign: TextAlign.start),
-                  onPressed: () {},
-                ),
+                ..._buildLinkButtons(context, selected),
               ],
             ),
           ),
@@ -130,6 +233,219 @@ class _AppDetailPageState extends State<AppDetailPage> {
       itemBuilder: (context, index) {
         return children[index];
       },
+    );
+  }
+
+  Future<void> _performInstallOrUpdate(AppDetailModel selected, bool isInstalled) async {
+    setState(() {
+      _actionInProgress = true;
+      _actionLabel = isInstalled ? 'Updating...' : 'Installing...';
+    });
+
+    try {
+      final provider = context.read<InstalledProvider>();
+      if (isInstalled) {
+        await provider.updateApp(sourceKey: selected.sourceKey, appId: selected.app.id);
+      } else {
+        await provider.installApp(sourceKey: selected.sourceKey, appId: selected.app.id);
+      }
+      await provider.refresh();
+      await _loadDetails();
+    } catch (error) {
+      _showActionError(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionInProgress = false;
+          _actionLabel = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _performOpen(AppDetailModel selected) async {
+    try {
+      await context.read<InstalledProvider>().openAppBySource(
+        sourceKey: selected.sourceKey,
+        appId: selected.app.id,
+      );
+    } catch (error) {
+      _showActionError(error.toString());
+    }
+  }
+
+  Future<void> _performUninstall(AppDetailModel selected) async {
+    final confirmed = await _confirmUninstall(selected.app.name);
+    if (!mounted) {
+      return;
+    }
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      _actionInProgress = true;
+      _actionLabel = 'Uninstalling...';
+    });
+
+    try {
+      final provider = context.read<InstalledProvider>();
+      await provider.uninstallApp(sourceKey: selected.sourceKey, appId: selected.app.id);
+      await provider.refresh();
+      await _loadDetails();
+    } catch (error) {
+      _showActionError(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionInProgress = false;
+          _actionLabel = null;
+        });
+      }
+    }
+  }
+
+  Future<bool?> _confirmUninstall(String appName) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm uninstall'),
+          content: Text('Uninstall "$appName"?'),
+          actions: [
+            SecondaryButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            DestructiveButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Uninstall'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showActionError(String message) {
+    if (!mounted) {
+      return;
+    }
+    showToast(
+      context: context,
+      builder: (context, overlay) {
+        return SurfaceCard(
+          child: Basic(
+            title: const Text('Action failed'),
+            content: Text(message),
+            trailing: const Icon(Icons.warning),
+          ),
+        );
+      },
+    );
+  }
+
+  String _normalizeBackend(String backend) {
+    final lower = backend.toLowerCase();
+    if (lower.startsWith('flatpak')) {
+      return 'flatpak';
+    }
+    if (lower.startsWith('pacman')) {
+      return 'pacman';
+    }
+    return lower;
+  }
+
+  List<Widget> _buildLinkButtons(BuildContext context, AppDetailModel selected) {
+    final theme = Theme.of(context);
+    if (selected.links.isEmpty) {
+      return [
+        OutlinedContainer(
+          padding: EdgeInsets.all(12 * theme.scaling),
+          child: Text('No external links available.').muted(),
+        ),
+      ];
+    }
+
+    return selected.links
+        .map(
+          (link) => LinkButton(
+            leading: const Icon(Icons.link),
+            trailing: const Icon(Icons.open_in_new),
+            child: Text(link.label, textAlign: TextAlign.start),
+            onPressed: () {
+              showToast(
+                context: context,
+                builder: (context, overlay) {
+                  return SurfaceCard(
+                    child: Basic(
+                      title: const Text('Link URL'),
+                      content: Text(link.url),
+                      trailing: const Icon(Icons.link),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        )
+        .toList();
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) {
+      return 'Unknown';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    double value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+
+    final decimals = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
+    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
+  }
+
+  String _formatDownloadCount(int? count) {
+    if (count == null || count < 1) {
+      return 'Unknown';
+    }
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M+';
+    }
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K+';
+    }
+    return '$count';
+  }
+
+  AppDetailModel _loadingDetail(String appId) {
+    return AppDetailModel(
+      app: AppModel(
+        id: appId,
+        name: 'Loading...',
+        description: 'Loading details',
+        icon: '',
+        backend: 'Loading',
+        installState: InstallState.installed,
+        version: null,
+      ),
+      sourceLabel: 'Loading...',
+      sourceKey: 'loading',
+      longDescription: '',
+      developer: null,
+      license: null,
+      ageRating: null,
+      downloadCount: null,
+      installedSizeBytes: null,
+      downloadSizeBytes: null,
+      installDate: null,
+      screenshots: const [],
+      links: const [],
+      extraInfo: const {},
     );
   }
 }
