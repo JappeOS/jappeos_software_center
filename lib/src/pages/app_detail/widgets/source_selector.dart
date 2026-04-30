@@ -16,37 +16,35 @@
 
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-class SourceSelector extends StatefulWidget {
-  const SourceSelector({super.key});
+class SourceSelector extends StatelessWidget {
+  final List<String> sources;
+  final String selectedValue;
+  final ValueChanged<String> onChanged;
 
-  @override
-  State<SourceSelector> createState() => _SourceSelectorState();
-}
-
-class _SourceSelectorState extends State<SourceSelector> {
-  String? selectedValue;
+  const SourceSelector({
+    super.key,
+    required this.sources,
+    required this.selectedValue,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Select<String>(
-      itemBuilder: (context, item) {
-        return Text(item);
-      },
-      popupConstraints: const BoxConstraints(maxHeight: 300, maxWidth: 200),
+      itemBuilder: (context, item) => Text(item),
+      popupConstraints: const BoxConstraints(maxHeight: 300, maxWidth: 280),
       onChanged: (value) {
-        setState(() {
-          selectedValue = value;
-        });
+        if (value != null) {
+          onChanged(value);
+        }
       },
       value: selectedValue,
-      placeholder: const Text('Select a fruit'),
-      popup: const SelectPopup(
+      placeholder: const Text('Select source'),
+      popup: SelectPopup(
         items: SelectItemList(
-          children: [
-            SelectItemButton(value: 'Apple', child: Text('Apple')),
-            SelectItemButton(value: 'Banana', child: Text('Banana')),
-            SelectItemButton(value: 'Cherry', child: Text('Cherry')),
-          ],
+          children: sources
+              .map((source) => SelectItemButton(value: source, child: Text(source)))
+              .toList(),
         ),
       ).call,
     );
