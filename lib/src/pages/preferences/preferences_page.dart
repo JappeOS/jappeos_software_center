@@ -40,10 +40,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
           AppTile(
             title: "Repositories",
             description: "Manage your software sources and repositories",
-            trailing: PrimaryButton(
-              child: const Text("Manage"),
-              onPressed: () {},
-            ),
+            trailing: const Icon(Icons.open_in_new),
             onPressed: () {},
           ),
         ],
