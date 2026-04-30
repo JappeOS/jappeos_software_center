@@ -1,6 +1,7 @@
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import '../core/services/package_service.dart';
+import '../models/app_detail_model.dart';
 import '../models/app_model.dart';
 
 class InstalledProvider extends ChangeNotifier {
@@ -17,6 +18,146 @@ class InstalledProvider extends ChangeNotifier {
   List<AppModel> get apps => _apps;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  Future<List<AppDetailModel>> getAppDetails(String appId) async {
+    final details = <AppDetailModel>[];
+    final seen = <String>{};
+    final installed = _apps.where((app) => app.id == appId).toList();
+
+    for (final source in _sources) {
+      try {
+        var detail = await source.getAppDetails(appId);
+        if (detail == null) {
+          continue;
+        }
+        detail = _mergeInstalledValues(detail, installed);
+        if (seen.add(detail.sourceKey)) {
+          details.add(detail);
+        }
+      } catch (_) {
+        // Ignore one source's detail failure to allow rendering from others.
+      }
+    }
+
+    details.sort(
+      (left, right) =>
+          left.sourceLabel.toLowerCase().compareTo(
+            right.sourceLabel.toLowerCase(),
+          ),
+    );
+    return details;
+  }
+
+  Future<void> installApp({
+    required String sourceKey,
+    required String appId,
+  }) async {
+    final service = _serviceForSourceKey(sourceKey);
+    await service.install(appId);
+  }
+
+  Future<void> uninstallApp({
+    required String sourceKey,
+    required String appId,
+  }) async {
+    final service = _serviceForSourceKey(sourceKey);
+    await service.uninstall(appId);
+  }
+
+  Future<void> updateApp({
+    required String sourceKey,
+    required String appId,
+  }) async {
+    final service = _serviceForSourceKey(sourceKey);
+    await service.update(appId);
+  }
+
+  Future<void> openAppBySource({
+    required String sourceKey,
+    required String appId,
+  }) async {
+    final service = _serviceForSourceKey(sourceKey);
+    await service.open(appId);
+  }
+
+  AppDetailModel _mergeInstalledValues(
+    AppDetailModel detail,
+    List<AppModel> installedCandidates,
+  ) {
+    if (installedCandidates.isEmpty) {
+      return detail;
+    }
+
+    AppModel? preferred;
+    for (final app in installedCandidates) {
+      if (_normalizeBackend(app.backend) == _normalizeBackend(detail.app.backend)) {
+        preferred = app;
+        break;
+      }
+    }
+    preferred ??= installedCandidates.first;
+
+    final current = detail.app;
+    final merged = AppModel(
+      id: current.id,
+      name: _looksLikeAppId(current.name) ? preferred.name : current.name,
+      description: current.description.trim().isEmpty
+          ? preferred.description
+          : current.description,
+      icon: current.icon.trim().isEmpty ? preferred.icon : current.icon,
+      backend: current.backend,
+      installState: current.installState,
+      version: (current.version == null || current.version!.trim().isEmpty)
+          ? preferred.version
+          : current.version,
+    );
+
+    return AppDetailModel(
+      app: merged,
+      sourceLabel: detail.sourceLabel,
+      sourceKey: detail.sourceKey,
+      longDescription: detail.longDescription,
+      developer: detail.developer,
+      license: detail.license,
+      ageRating: detail.ageRating,
+      downloadCount: detail.downloadCount,
+      installedSizeBytes: detail.installedSizeBytes,
+      downloadSizeBytes: detail.downloadSizeBytes,
+      installDate: detail.installDate,
+      screenshots: detail.screenshots,
+      links: detail.links,
+      extraInfo: detail.extraInfo,
+    );
+  }
+
+  bool _looksLikeAppId(String value) {
+    final trimmed = value.trim();
+    if (!trimmed.contains('.')) {
+      return false;
+    }
+    return RegExp(r'^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$').hasMatch(trimmed);
+  }
+
+  String _normalizeBackend(String backend) {
+    final lower = backend.toLowerCase().trim();
+    if (lower.startsWith('flatpak')) {
+      return 'flatpak';
+    }
+    if (lower.startsWith('pacman')) {
+      return 'pacman';
+    }
+    return lower;
+  }
+
+  PackageService _serviceForSourceKey(String sourceKey) {
+    final sourcePrefix = sourceKey.split(':').first.toLowerCase().trim();
+    for (final service in _sources) {
+      if (service.sourceId.toLowerCase() == sourcePrefix) {
+        return service;
+      }
+    }
+    throw StateError('No package service found for source key "$sourceKey".');
+  }
 
   Future<void> loadIfNeeded() async {
     if (_hasLoaded) {
