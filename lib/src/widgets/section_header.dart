@@ -20,57 +20,43 @@ class SectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onViewAll;
   final String actionLabel;
+  final Icon actionIcon;
 
   const SectionHeader({
     super.key,
     required this.title,
     this.onViewAll,
     this.actionLabel = "View All",
+    this.actionIcon = const Icon(Icons.chevron_right),
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final headerStyle = theme.typography.h4;
     return Padding(
       padding: EdgeInsets.only(
         top: 16 * theme.scaling,
         bottom: 8 * theme.scaling,
       ),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).typography.h4,
-          ),
-          const Spacer(),
-          if (onViewAll != null)
-            LinkButton(
-              onPressed: onViewAll,
-              density: ButtonDensity.compact,
-              trailing: Icon(Icons.chevron_right),
-              child: Text(actionLabel),
+      child: SizedBox(
+        height: headerStyle.fontSize!,
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: headerStyle,
             ),
-            /*InkWell(
-              onTap: onViewAll,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      actionLabel,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: Colors.blue),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 18),
-                  ],
-                ),
+            const Spacer(),
+            if (onViewAll != null)
+              LinkButton(
+                onPressed: onViewAll,
+                density: ButtonDensity.compact,
+                trailing: actionIcon,
+                child: Text(actionLabel),
               ),
-            ),*/
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -39,6 +39,7 @@ class AppTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Button(
       style: ButtonStyle.outline().copyWith(
+        padding: (context, states, value) => EdgeInsets.symmetric(horizontal: 16 * theme.scaling, vertical: 8 * theme.scaling),
         decoration: (context, states, value) => (value as BoxDecoration).copyWith(
           borderRadius: theme.borderRadiusLg,
           color: states.contains(WidgetState.hovered)
@@ -57,9 +58,12 @@ class AppTile extends StatelessWidget {
         ),
       ),
       onPressed: onPressed,
-      leading: icon != null ? SizedBox.square(
-        dimension: 30 * theme.scaling,
-        child: icon,
+      leading: icon != null ? Padding(
+        padding: EdgeInsets.only(right: 8 * theme.scaling),
+        child: SizedBox.square(
+          dimension: 30 * theme.scaling,
+          child: icon,
+        ),
       ) : null,
       trailing: Row(
         spacing: 16 * theme.scaling,
