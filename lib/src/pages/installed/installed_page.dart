@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/installed_provider.dart';
 import '../../providers/navigation_provider.dart';
+import '../../widgets/app_icon.dart';
 import '../../widgets/app_tile.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
@@ -50,6 +51,7 @@ class _InstalledPageState extends State<InstalledPage> {
             ? null
             : () => context.read<InstalledProvider>().refresh(),
         actionLabel: installedProvider.isLoading ? "Refreshing..." : "Refresh",
+        actionIcon: Icon(Icons.refresh),
       ),
     ];
 
@@ -97,14 +99,11 @@ class _InstalledPageState extends State<InstalledPage> {
           children: apps
               .map(
                 (app) => AppTile(
-                  icon: Icon(Icons.apps),
+                  icon: AppIcon(icon: app.icon, size: 30),
                   title: app.name,
                   description: app.description,
                   trailingText: _buildTrailingText(app.backend, app.version),
-                  trailing: PrimaryButton(
-                    onPressed: null,
-                    child: const Text("Installed"),
-                  ),
+                  trailing: Icon(Icons.open_in_new),
                   onPressed: () =>
                       context.read<NavigationProvider>().openApp(app.id),
                 ),
