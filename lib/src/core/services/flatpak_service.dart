@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
 import 'command_runner.dart';
@@ -23,6 +25,9 @@ class FlatpakService implements PackageService {
     : _commandRunner = commandRunner;
 
   @override
+  String get sourceId => 'flatpak';
+
+  @override
   Future<List<AppModel>> getInstalledApps() async {
     CommandResult result;
     try {
@@ -44,6 +49,106 @@ class FlatpakService implements PackageService {
     }
 
     return _parseFlatpakApps(result.stdout);
+  }
+
+  @override
+  Future<AppDetailModel?> getAppDetails(String id) async {
+    CommandResult result;
+    try {
+      result = await _commandRunner.run('flatpak', [
+        'info',
+        '--show-metadata',
+        id,
+      ], timeout: _defaultTimeout);
+    } on CommandStartException {
+      return null;
+    }
+
+    if (!result.success) {
+      return null;
+    }
+
+    final metadata = _parseFlatpakMetadata(result.stdout);
+    if (metadata.isEmpty) {
+      return null;
+    }
+
+    final appSection = metadata['Application'] ?? const <String, String>{};
+    final contextSection = metadata['Context'] ?? const <String, String>{};
+
+    final name = appSection['name']?.trim();
+    final description = appSection['comment']?.trim();
+    final version = appSection['version']?.trim();
+    final license = appSection['project_license']?.trim();
+    final developer = appSection['developer_name']?.trim();
+    final homepage = appSection['homepage']?.trim();
+    final issueTracker = appSection['bugtracker']?.trim();
+    final help = appSection['help']?.trim();
+
+    final appId = appSection['id']?.trim().isNotEmpty == true
+        ? appSection['id']!.trim()
+        : id;
+    final origin = appSection['origin']?.trim();
+    final sourceLabel = origin == null || origin.isEmpty
+        ? 'Flatpak'
+        : 'Flatpak ($origin)';
+
+    final links = <AppLink>[];
+    _addLinkIfValid(links, 'Project Website', homepage);
+    _addLinkIfValid(links, 'Issue Tracker', issueTracker);
+    _addLinkIfValid(links, 'Help', help);
+
+    final screenshots = <String>[];
+    for (final entry in appSection.entries) {
+      if (!entry.key.startsWith('screenshots')) {
+        continue;
+      }
+      for (final value in entry.value.split(';')) {
+        final trimmed = value.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          screenshots.add(trimmed);
+        }
+      }
+    }
+
+    final extraInfo = <String, String>{};
+    _addIfPresent(extraInfo, 'Runtime', appSection['runtime']);
+    _addIfPresent(extraInfo, 'Sdk', appSection['sdk']);
+    _addIfPresent(extraInfo, 'Command', appSection['command']);
+    _addIfPresent(extraInfo, 'Required Devices', contextSection['devices']);
+    _addIfPresent(extraInfo, 'Filesystem Access', contextSection['filesystems']);
+    _addIfPresent(extraInfo, 'Network Access', contextSection['shared']);
+
+    return AppDetailModel(
+      app: AppModel(
+        id: appId,
+        name: name == null || name.isEmpty ? _nameFromId(appId) : name,
+        description: description == null || description.isEmpty
+            ? 'No description available.'
+            : description,
+        icon: appId,
+        backend: sourceLabel,
+        installState: InstallState.installed,
+        version: version == null || version.isEmpty ? null : version,
+      ),
+      sourceLabel: sourceLabel,
+      sourceKey: 'flatpak:${origin ?? ''}',
+      longDescription: appSection['description']?.trim().isNotEmpty == true
+          ? appSection['description']!.trim()
+          : (description?.isNotEmpty == true
+                ? description!
+                : 'No long description available.'),
+      developer: developer == null || developer.isEmpty ? null : developer,
+      license: license == null || license.isEmpty ? null : license,
+      ageRating: appSection['content_rating']?.trim(),
+      downloadCount: null,
+      installedSizeBytes: null,
+      downloadSizeBytes: null,
+      installDate: null,
+      screenshots: screenshots,
+      links: links,
+      extraInfo: extraInfo,
+    );
   }
 
   @override
@@ -104,6 +209,22 @@ class FlatpakService implements PackageService {
     }
   }
 
+  @override
+  Future<void> open(String id) async {
+    try {
+      final result = await Process.run('setsid', ['flatpak', 'run', id], runInShell: false);
+      if (result.exitCode != 0) {
+        throw FlatpakServiceException(
+          'Failed to open "$id": ${result.stderr.toString().trim()}',
+        );
+      }
+    } on ProcessException catch (error) {
+      throw FlatpakServiceException(
+        'Failed to open "$id": ${error.message}',
+      );
+    }
+  }
+
   List<AppModel> _parseFlatpakApps(String stdout) {
     if (stdout.trim().isEmpty) {
       return const [];
@@ -136,7 +257,7 @@ class FlatpakService implements PackageService {
           description: description.isNotEmpty
               ? description
               : 'No description available.',
-          icon: '',
+          icon: id,
           backend: origin.isNotEmpty ? 'flatpak:$origin' : 'flatpak',
           installState: InstallState.installed,
           version: version,
@@ -173,5 +294,51 @@ class FlatpakService implements PackageService {
     }
 
     return parts.last;
+  }
+
+  Map<String, Map<String, String>> _parseFlatpakMetadata(String stdout) {
+    final sections = <String, Map<String, String>>{};
+    String currentSection = '';
+
+    for (final line in const LineSplitter().convert(stdout)) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) {
+        continue;
+      }
+
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        currentSection = trimmed.substring(1, trimmed.length - 1).trim();
+        sections.putIfAbsent(currentSection, () => <String, String>{});
+        continue;
+      }
+
+      final separator = trimmed.indexOf('=');
+      if (separator <= 0) {
+        continue;
+      }
+      final key = trimmed.substring(0, separator).trim();
+      final value = trimmed.substring(separator + 1).trim();
+      sections.putIfAbsent(currentSection, () => <String, String>{})[key] =
+          value;
+    }
+
+    return sections;
+  }
+
+  void _addIfPresent(Map<String, String> map, String key, String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return;
+    }
+    map[key] = value.trim();
+  }
+
+  void _addLinkIfValid(List<AppLink> links, String label, String? value) {
+    if (value == null) {
+      return;
+    }
+    final trimmed = value.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      links.add(AppLink(label: label, url: trimmed));
+    }
   }
 }
