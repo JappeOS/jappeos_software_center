@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
 import 'command_runner.dart';
@@ -21,6 +23,9 @@ class PacmanService implements PackageService {
 
   PacmanService({required CommandRunner commandRunner})
     : _commandRunner = commandRunner;
+
+  @override
+  String get sourceId => 'pacman';
 
   @override
   Future<List<AppModel>> getInstalledApps() async {
@@ -79,6 +84,78 @@ class PacmanService implements PackageService {
     );
 
     return apps;
+  }
+
+  @override
+  Future<AppDetailModel?> getAppDetails(String id) async {
+    final result = await _runInfoCommand(id);
+    if (result == null) {
+      return null;
+    }
+
+    final fields = _parseKeyValueOutput(result.stdout);
+    if (fields.isEmpty) {
+      return null;
+    }
+
+    final name = fields['Name']?.trim();
+    if (name == null || name.isEmpty) {
+      return null;
+    }
+
+    final description = fields['Description']?.trim() ?? 'Pacman package';
+    final url = fields['URL']?.trim();
+    final installDate = _parsePacmanDate(fields['Install Date']);
+    final buildDate = _parsePacmanDate(fields['Build Date']);
+    final installedSize = _parsePacmanSize(fields['Installed Size']);
+    final downloadSize = _parsePacmanSize(fields['Download Size']);
+    final licenses = fields['Licenses']?.trim();
+    final version = fields['Version']?.trim();
+    final repository = fields['Repository']?.trim();
+    final packager = fields['Packager']?.trim();
+    final arch = fields['Architecture']?.trim();
+
+    final links = <AppLink>[];
+    if (url != null && url.isNotEmpty) {
+      links.add(AppLink(label: 'Project Website', url: url));
+    }
+
+    final extraInfo = <String, String>{};
+    _addIfPresent(extraInfo, 'Repository', repository);
+    _addIfPresent(extraInfo, 'Architecture', arch);
+    _addIfPresent(extraInfo, 'Packager', packager);
+    _addIfPresent(extraInfo, 'Build Date', fields['Build Date']);
+    _addIfPresent(extraInfo, 'Install Date', fields['Install Date']);
+    _addIfPresent(extraInfo, 'Depends On', fields['Depends On']);
+    _addIfPresent(extraInfo, 'Optional Deps', fields['Optional Deps']);
+    _addIfPresent(extraInfo, 'Required By', fields['Required By']);
+
+    return AppDetailModel(
+      app: AppModel(
+        id: id,
+        name: name,
+        description: description,
+        icon: name,
+        backend: 'pacman',
+        installState: InstallState.installed,
+        version: version == null || version.isEmpty ? null : version,
+      ),
+      sourceLabel: repository == null || repository.isEmpty
+          ? 'Pacman'
+          : 'Pacman ($repository)',
+      sourceKey: 'pacman',
+      longDescription: description,
+      developer: packager == null || packager.isEmpty ? null : packager,
+      license: licenses == null || licenses.isEmpty ? null : licenses,
+      ageRating: null,
+      downloadCount: null,
+      installedSizeBytes: installedSize,
+      downloadSizeBytes: downloadSize,
+      installDate: installDate ?? buildDate,
+      screenshots: const [],
+      links: links,
+      extraInfo: extraInfo,
+    );
   }
 
   @override
@@ -146,6 +223,35 @@ class PacmanService implements PackageService {
     }
   }
 
+  @override
+  Future<void> open(String id) async {
+    final launchCandidates = <List<String>>[
+      ['gtk-launch', id],
+      ['setsid', id],
+    ];
+
+    var lastError = '';
+    for (final candidate in launchCandidates) {
+      try {
+        final result = await Process.run(
+          candidate.first,
+          candidate.sublist(1),
+          runInShell: false,
+        );
+        if (result.exitCode == 0) {
+          return;
+        }
+        lastError = result.stderr.toString().trim();
+      } on ProcessException catch (error) {
+        lastError = error.message;
+      }
+    }
+
+    throw PacmanServiceException(
+      'Failed to open "$id"${lastError.isEmpty ? '' : ': $lastError'}',
+    );
+  }
+
   List<String> _parsePackageNames(String stdout) {
     final names = <String>[];
     for (final line in const LineSplitter().convert(stdout)) {
@@ -177,7 +283,7 @@ class PacmanService implements PackageService {
           description: (currentDescription ?? '').trim().isEmpty
               ? 'Pacman package'
               : currentDescription!.trim(),
-          icon: '',
+          icon: name,
           backend: 'pacman',
           installState: InstallState.installed,
           version: (currentVersion ?? '').trim().isEmpty
@@ -230,5 +336,114 @@ class PacmanService implements PackageService {
       yield items.sublist(index, end);
       index = end;
     }
+  }
+
+  Future<CommandResult?> _runInfoCommand(String id) async {
+    CommandResult result;
+    try {
+      result = await _commandRunner.run(
+        'pacman',
+        ['-Qi', id],
+        timeout: _defaultTimeout,
+        environment: const {'LC_ALL': 'C'},
+      );
+    } on CommandStartException {
+      return null;
+    }
+
+    if (result.success) {
+      return result;
+    }
+
+    final syncResult = await _commandRunner.run(
+      'pacman',
+      ['-Si', id],
+      timeout: _defaultTimeout,
+      environment: const {'LC_ALL': 'C'},
+    );
+    if (!syncResult.success) {
+      return null;
+    }
+    return syncResult;
+  }
+
+  Map<String, String> _parseKeyValueOutput(String stdout) {
+    final values = <String, String>{};
+    String? currentKey;
+
+    for (final line in const LineSplitter().convert(stdout)) {
+      if (line.trim().isEmpty) {
+        currentKey = null;
+        continue;
+      }
+
+      final separatorIndex = line.indexOf(':');
+      if (separatorIndex <= 0) {
+        if (currentKey != null) {
+          final nextValue = line.trim();
+          if (nextValue.isNotEmpty) {
+            values[currentKey] = '${values[currentKey]} $nextValue'.trim();
+          }
+        }
+        continue;
+      }
+
+      currentKey = line.substring(0, separatorIndex).trim();
+      values[currentKey] = line.substring(separatorIndex + 1).trim();
+    }
+
+    return values;
+  }
+
+  int? _parsePacmanSize(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)\s*([KMGTP]?i?B)', caseSensitive: false).firstMatch(raw);
+    if (match == null) {
+      return null;
+    }
+
+    final number = double.tryParse(match.group(1)!);
+    if (number == null) {
+      return null;
+    }
+
+    final unit = match.group(2)!.toUpperCase();
+    const factors = <String, int>{
+      'B': 1,
+      'KB': 1000,
+      'MB': 1000 * 1000,
+      'GB': 1000 * 1000 * 1000,
+      'TB': 1000 * 1000 * 1000 * 1000,
+      'KIB': 1024,
+      'MIB': 1024 * 1024,
+      'GIB': 1024 * 1024 * 1024,
+      'TIB': 1024 * 1024 * 1024 * 1024,
+    };
+    final factor = factors[unit];
+    if (factor == null) {
+      return null;
+    }
+    return (number * factor).round();
+  }
+
+  DateTime? _parsePacmanDate(String? raw) {
+    if (raw == null || raw.trim().isEmpty || raw.trim() == 'Unknown') {
+      return null;
+    }
+
+    return DateTime.tryParse(raw.trim());
+  }
+
+  void _addIfPresent(Map<String, String> target, String key, String? value) {
+    if (value == null) {
+      return;
+    }
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed == 'None') {
+      return;
+    }
+    target[key] = trimmed;
   }
 }
