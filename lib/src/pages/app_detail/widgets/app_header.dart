@@ -16,10 +16,32 @@
 
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../../../models/app_detail_model.dart';
+import '../../../widgets/app_icon.dart';
+import 'install_button.dart';
 import 'source_selector.dart';
 
 class AppHeader extends StatelessWidget {
-  const AppHeader({super.key});
+  final AppDetailModel detail;
+  final List<String> sources;
+  final ValueChanged<String> onSourceChanged;
+  final InstallButtonState installButtonState;
+  final VoidCallback? onInstallOrUpdate;
+  final VoidCallback? onOpen;
+  final VoidCallback? onUninstall;
+  final String? progressText;
+
+  const AppHeader({
+    super.key,
+    required this.detail,
+    required this.sources,
+    required this.onSourceChanged,
+    required this.installButtonState,
+    this.onInstallOrUpdate,
+    this.onOpen,
+    this.onUninstall,
+    this.progressText,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,40 +49,44 @@ class AppHeader extends StatelessWidget {
     return Row(
       spacing: 16 * theme.scaling,
       children: [
-        Icon(Icons.apps, size: 95 * theme.scaling),
-        Flexible(
+        AppIcon(icon: detail.app.icon, size: 95 * theme.scaling),
+        Expanded(
           flex: 3,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 4 * theme.scaling,
             children: [
-              Text("App Name").h3().ellipsis(),
+              Text(detail.app.name).h3().ellipsis(),
               Text(
-                "App creator's name",
+                detail.developer ?? detail.app.id,
               ).muted().ellipsis(),
               Gap(0),
-              Row(
-                spacing: 6 * theme.scaling,
-                children: [
-                  StarRating(
-                    starSize: 14,
-                    value: 5,
-                  ),
-                  Text("(123)").muted(),
-                ],
-              ),
+              Text(
+                detail.app.version == null
+                    ? detail.app.backend
+                    : '${detail.app.backend} • ${detail.app.version}',
+              ).small().muted(),
             ],
           ),
         ),
-        Flexible(
-          flex: 1,
+        SizedBox(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 8 * theme.scaling,
-            children: [
-              PrimaryButton(child: Text("Install"), onPressed: () {}),
-              SourceSelector(),
+              crossAxisAlignment: CrossAxisAlignment.end,
+              spacing: 8 * theme.scaling,
+              children: [
+              InstallButton(
+                state: installButtonState,
+                progressText: progressText,
+                onInstallOrUpdate: onInstallOrUpdate,
+                onOpen: onOpen,
+                onUninstall: onUninstall,
+              ),
+              SourceSelector(
+                sources: sources,
+                selectedValue: detail.sourceLabel,
+                onChanged: onSourceChanged,
+              ),
             ],
           ),
         ),
