@@ -33,6 +33,9 @@ class _UpdatesPageState extends State<UpdatesPage> {
     final children = [
       SectionHeader(
         title: "Updates Available (2)",
+        onViewAll: () {},
+        actionLabel: "Update All",
+        actionIcon: Icon(Icons.cached),
       ),
       ButtonGroup(
         direction: Axis.vertical,
