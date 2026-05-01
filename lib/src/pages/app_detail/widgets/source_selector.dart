@@ -14,9 +14,10 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter_svg/svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+
+import '../../../widgets/custom_icon.dart';
 
 class SourceSelector extends StatelessWidget {
   final List<String> sources;
@@ -57,26 +58,11 @@ class SourceSelector extends StatelessWidget {
 
   Widget _buildItem(BuildContext context, String source) {
     final theme = Theme.of(context);
-    final size = theme.iconTheme.medium.size;
-    final colorFilter = ColorFilter.mode(
-      theme.colorScheme.secondaryForeground,
-      BlendMode.srcATop,
-    );
     Widget icon = Icon(Symbols.deployed_code);
     if (source.startsWith("Flatpak")) {
-      icon = SvgPicture.asset(
-        'assets/icons/flatpak.svg',
-        width: size,
-        height: size,
-        colorFilter: colorFilter,
-      );
+      icon = CustomIcon(icon: CustomIconType.flatpak);
     } else if (source.startsWith("Pacman")) {
-      icon = SvgPicture.asset(
-        'assets/icons/arch.svg',
-        width: size,
-        height: size,
-        colorFilter: colorFilter,
-      );
+      icon = CustomIcon(icon: CustomIconType.arch);
     }
     return Row(
       spacing: 8 * theme.scaling,
