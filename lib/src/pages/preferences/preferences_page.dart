@@ -19,6 +19,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../widgets/app_tile.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
+import 'widgets/manage_repositories_dialog.dart';
 
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key});
@@ -41,7 +42,10 @@ class _PreferencesPageState extends State<PreferencesPage> {
             title: "Repositories",
             description: "Manage your software sources and repositories",
             trailing: const Icon(Icons.open_in_new),
-            onPressed: () {},
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => ManageRepositoriesDialog(),
+            ),
           ),
         ],
       ),
