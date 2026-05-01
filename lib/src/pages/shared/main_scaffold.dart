@@ -17,6 +17,7 @@
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import 'content_switcher.dart';
+import 'search_bar.dart';
 import 'sidebar.dart';
 
 class MainScaffold extends StatelessWidget {
@@ -35,13 +36,7 @@ class MainScaffold extends StatelessWidget {
             Spacer(),
             Flexible(
               flex: 2,
-              child: TextField(
-                features: [
-                  InputFeature.leading(Icon(Icons.search)),
-                  InputFeature.trailing(Icon(Icons.arrow_forward))
-                ],
-                placeholder: Text("Search software..."),
-              ),
+              child: SearchBar(),
             ),
             Spacer(),
           ],
