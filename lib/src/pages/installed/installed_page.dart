@@ -21,6 +21,7 @@ import '../../providers/installed_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/app_tile.dart';
+import '../../widgets/feedback_state.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
 
@@ -44,55 +45,60 @@ class _InstalledPageState extends State<InstalledPage> {
   Widget build(BuildContext context) {
     final installedProvider = context.watch<InstalledProvider>();
     final apps = installedProvider.apps;
-    final children = <Widget>[
-      SectionHeader(
-        title: "Installed Applications (${apps.length})",
-        onViewAll: installedProvider.isLoading
-            ? null
-            : () => context.read<InstalledProvider>().refresh(),
-        actionLabel: installedProvider.isLoading ? "Refreshing..." : "Refresh",
-        actionIcon: Icon(Icons.refresh),
-      ),
-    ];
+    final children = <Widget>[];
 
     if (installedProvider.isLoading && apps.isEmpty) {
       children.add(
-        AppTile(
-          icon: Icon(Icons.refresh),
-          title: "Loading installed applications",
-          description: "Collecting package data from configured backends.",
-          trailing: PrimaryButton(
+        FeedbackState(
+          icon: Icons.refresh,
+          title: 'Loading installed applications...',
+          description: 'Collecting package data from configured backends.',
+          action: const PrimaryButton(
             onPressed: null,
-            child: const Text("Loading"),
+            leading: AspectRatio(
+              aspectRatio: 1,
+              child: CircularProgressIndicator(),
+            ),
+            child: Text('Loading'),
           ),
         ),
       );
     } else if (installedProvider.errorMessage != null && apps.isEmpty) {
       children.add(
-        AppTile(
-          icon: Icon(Icons.warning),
-          title: "Failed to load installed applications",
-          description: installedProvider.errorMessage!,
-          trailing: PrimaryButton(
-            child: const Text("Retry"),
+        FeedbackState(
+          icon: Icons.warning,
+          iconForeground: Colors.yellow,
+          title: 'Failed to load installed applications',
+          description: 'This may be a bug worth reporting.\n\n${installedProvider.errorMessage!}',
+          action: PrimaryButton(
             onPressed: () => context.read<InstalledProvider>().refresh(),
+            child: const Text('Retry'),
           ),
         ),
       );
     } else if (apps.isEmpty) {
       children.add(
-        AppTile(
-          icon: Icon(Icons.search),
-          title: "No installed applications found",
-          description:
-              "No application packages were returned by the active backends.",
-          trailing: PrimaryButton(
-            child: const Text("Refresh"),
+        FeedbackState(
+          icon: Icons.search,
+          title: 'No installed applications found',
+          description: 'No application packages were returned by the active backends.',
+          action: PrimaryButton(
             onPressed: () => context.read<InstalledProvider>().refresh(),
+            child: const Text('Refresh'),
           ),
         ),
       );
     } else {
+      children.add(
+        SectionHeader(
+          title: "Installed Applications (${apps.length})",
+          onViewAll: installedProvider.isLoading
+              ? null
+              : () => context.read<InstalledProvider>().refresh(),
+          actionLabel: installedProvider.isLoading ? "Refreshing..." : "Refresh",
+          actionIcon: Icon(Icons.refresh),
+        ),
+      );
       children.add(
         ButtonGroup(
           direction: Axis.vertical,
