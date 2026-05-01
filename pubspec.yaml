@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
 
   flutter_svg: ^2.2.4
+  material_symbols_icons: ^4.2928.1
   provider: ^6.1.5+1
   shadcn_flutter:
     git:
@@ -25,5 +26,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
-
   uses-material-design: true
+  assets:
+    - assets/icons/arch.svg
+    - assets/icons/flatpak.svg
