@@ -16,10 +16,12 @@
 
 import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
+import '../../models/update_model.dart';
 
 abstract class PackageService {
   String get sourceId;
   Future<List<AppModel>> getInstalledApps();
+  Future<List<UpdateModel>> getAvailableUpdates();
   Future<AppDetailModel?> getAppDetails(String id);
   Future<void> install(String id);
   Future<void> uninstall(String id);

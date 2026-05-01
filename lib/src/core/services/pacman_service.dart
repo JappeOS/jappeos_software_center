@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
+import '../../models/update_model.dart';
 import 'command_runner.dart';
 import 'package_service.dart';
 
@@ -159,6 +160,94 @@ class PacmanService implements PackageService {
   }
 
   @override
+  Future<List<UpdateModel>> getAvailableUpdates() async {
+    CommandResult listResult;
+    try {
+      listResult = await _commandRunner.run(
+        'pacman',
+        ['-Qu'],
+        timeout: _defaultTimeout,
+        environment: const {'LC_ALL': 'C'},
+      );
+    } on CommandStartException {
+      return const [];
+    }
+
+    if (!listResult.success) {
+      if (listResult.stdout.trim().isEmpty && listResult.stderr.trim().isEmpty) {
+        return const [];
+      }
+      throw PacmanServiceException(
+        'pacman -Qu failed (exit ${listResult.exitCode}): ${listResult.stderr}',
+      );
+    }
+
+    final packageNames = _parsePacmanUpdateNames(listResult.stdout);
+    if (packageNames.isEmpty) {
+      return const [];
+    }
+
+    final updates = <UpdateModel>[];
+    var totalSize = 0;
+    var sizedCount = 0;
+
+    for (final chunk in _chunk(packageNames, 80)) {
+      final infoResult = await _commandRunner.run(
+        'pacman',
+        ['-Si', ...chunk],
+        timeout: _defaultTimeout,
+        environment: const {'LC_ALL': 'C'},
+      );
+      if (!infoResult.success) {
+        continue;
+      }
+      final infoByName = _parseSyncInfo(infoResult.stdout);
+      for (final package in chunk) {
+        final info = infoByName[package];
+        final size = _parsePacmanSize(info?['Download Size']);
+        if (size != null) {
+          totalSize += size;
+          sizedCount++;
+        }
+        updates.add(
+          UpdateModel(
+            id: 'pacman:$package',
+            name: package,
+            description: info?['Description']?.trim().isNotEmpty == true
+                ? info!['Description']!.trim()
+                : 'Pacman package update',
+            icon: package,
+            sourceKey: 'pacman',
+            appId: package,
+            downloadSizeBytes: size,
+            version: info?['Version']?.trim(),
+            isSystem: false,
+            app: null,
+          ),
+        );
+      }
+    }
+
+    updates.insert(
+      0,
+      UpdateModel(
+        id: 'pacman:__system__',
+        name: 'System Updates',
+        description: '${packageNames.length} package updates available',
+        icon: '',
+        sourceKey: 'pacman',
+        appId: '__all__',
+        downloadSizeBytes: sizedCount > 0 ? totalSize : null,
+        version: null,
+        isSystem: true,
+        app: null,
+      ),
+    );
+
+    return updates;
+  }
+
+  @override
   Future<void> install(String id) async {
     CommandResult result;
     try {
@@ -206,12 +295,17 @@ class PacmanService implements PackageService {
   Future<void> update(String id) async {
     CommandResult result;
     try {
-      result = await _commandRunner.run('pkexec', [
-        'pacman',
-        '-S',
-        '--noconfirm',
-        id,
-      ], timeout: const Duration(minutes: 10));
+      final args = ['pacman'];
+      if (id == '__all__') {
+        args.addAll(['-Syu', '--noconfirm']);
+      } else {
+        args.addAll(['-S', '--noconfirm', id]);
+      }
+      result = await _commandRunner.run(
+        'pkexec',
+        args,
+        timeout: const Duration(minutes: 10),
+      );
     } on CommandStartException {
       throw PacmanServiceException(
         'Pacman (or pkexec) is not available on this system.',
@@ -445,5 +539,55 @@ class PacmanService implements PackageService {
       return;
     }
     target[key] = trimmed;
+  }
+
+  List<String> _parsePacmanUpdateNames(String stdout) {
+    final names = <String>[];
+    for (final line in const LineSplitter().convert(stdout)) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      final name = trimmed.split(' ').first.trim();
+      if (name.isNotEmpty) {
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
+  Map<String, Map<String, String>> _parseSyncInfo(String stdout) {
+    final packages = <String, Map<String, String>>{};
+    Map<String, String> current = <String, String>{};
+    String? currentName;
+
+    void flush() {
+      final name = currentName;
+      if (name == null || name.isEmpty) {
+        return;
+      }
+      packages[name] = Map<String, String>.from(current);
+    }
+
+    for (final line in const LineSplitter().convert(stdout)) {
+      if (line.trim().isEmpty) {
+        flush();
+        current = <String, String>{};
+        currentName = null;
+        continue;
+      }
+      final sep = line.indexOf(':');
+      if (sep <= 0) {
+        continue;
+      }
+      final key = line.substring(0, sep).trim();
+      final value = line.substring(sep + 1).trim();
+      current[key] = value;
+      if (key == 'Name') {
+        currentName = value;
+      }
+    }
+    flush();
+    return packages;
   }
 }

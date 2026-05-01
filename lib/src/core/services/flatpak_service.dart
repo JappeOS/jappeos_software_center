@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
+import '../../models/update_model.dart';
 import 'command_runner.dart';
 import 'package_service.dart';
 
@@ -152,6 +153,55 @@ class FlatpakService implements PackageService {
   }
 
   @override
+  Future<List<UpdateModel>> getAvailableUpdates() async {
+    CommandResult result;
+    try {
+      result = await _commandRunner.run('flatpak', [
+        'remote-ls',
+        '--updates',
+        '--app',
+        '--columns=application,name,version,download-size',
+      ], timeout: _defaultTimeout);
+    } on CommandStartException {
+      return const [];
+    }
+
+    if (!result.success || result.stdout.trim().isEmpty) {
+      return const [];
+    }
+
+    final updates = <UpdateModel>[];
+    for (final line in const LineSplitter().convert(result.stdout)) {
+      if (line.trim().isEmpty) {
+        continue;
+      }
+      final columns = line.split('\t');
+      final appId = _column(columns, 0);
+      if (appId.isEmpty) {
+        continue;
+      }
+      final name = _column(columns, 1);
+      final version = _nullableColumn(columns, 2);
+      final downloadSize = _parseByteCount(_column(columns, 3));
+      updates.add(
+        UpdateModel(
+          id: 'flatpak:$appId',
+          name: name.isEmpty ? _nameFromId(appId) : name,
+          description: 'Flatpak application update',
+          icon: appId,
+          sourceKey: 'flatpak',
+          appId: appId,
+          downloadSizeBytes: downloadSize,
+          version: version,
+          isSystem: false,
+          app: null,
+        ),
+      );
+    }
+    return updates;
+  }
+
+  @override
   Future<void> install(String id) async {
     CommandResult result;
     try {
@@ -195,11 +245,11 @@ class FlatpakService implements PackageService {
   Future<void> update(String id) async {
     CommandResult result;
     try {
-      result = await _commandRunner.run('flatpak', [
-        'update',
-        '-y',
-        id,
-      ], timeout: _defaultTimeout);
+      final args = ['update', '-y'];
+      if (id != '__all__') {
+        args.add(id);
+      }
+      result = await _commandRunner.run('flatpak', args, timeout: _defaultTimeout);
     } on CommandStartException {
       throw FlatpakServiceException('Flatpak is not available on this system.');
     }
@@ -340,5 +390,37 @@ class FlatpakService implements PackageService {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       links.add(AppLink(label: label, url: trimmed));
     }
+  }
+
+  int? _parseByteCount(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) {
+      return null;
+    }
+    final match = RegExp(r'([0-9]+(?:\\.[0-9]+)?)\\s*([KMGTP]?i?B)', caseSensitive: false).firstMatch(value);
+    if (match == null) {
+      return null;
+    }
+    final number = double.tryParse(match.group(1)!);
+    if (number == null) {
+      return null;
+    }
+    final unit = match.group(2)!.toUpperCase();
+    const factors = <String, int>{
+      'B': 1,
+      'KB': 1000,
+      'MB': 1000 * 1000,
+      'GB': 1000 * 1000 * 1000,
+      'TB': 1000 * 1000 * 1000 * 1000,
+      'KIB': 1024,
+      'MIB': 1024 * 1024,
+      'GIB': 1024 * 1024 * 1024,
+      'TIB': 1024 * 1024 * 1024 * 1024,
+    };
+    final factor = factors[unit];
+    if (factor == null) {
+      return null;
+    }
+    return (number * factor).round();
   }
 }

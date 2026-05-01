@@ -19,6 +19,7 @@ import 'package:jappeos_software_center/src/core/services/flatpak_service.dart';
 import 'package:jappeos_software_center/src/core/services/pacman_service.dart';
 import 'package:jappeos_software_center/src/providers/navigation_provider.dart';
 import 'package:jappeos_software_center/src/providers/installed_provider.dart';
+import 'package:jappeos_software_center/src/providers/updates_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -54,12 +55,23 @@ class App extends StatelessWidget {
           ChangeNotifierProvider(
             create: (_) {
               const commandRunner = ProcessCommandRunner();
+              final services = [
+                FlatpakService(commandRunner: commandRunner),
+                PacmanService(commandRunner: commandRunner),
+              ];
               return InstalledProvider(
-                sources: [
-                  FlatpakService(commandRunner: commandRunner),
-                  PacmanService(commandRunner: commandRunner),
-                ],
+                sources: services,
               );
+            },
+          ),
+          ChangeNotifierProvider(
+            create: (_) {
+              const commandRunner = ProcessCommandRunner();
+              final services = [
+                FlatpakService(commandRunner: commandRunner),
+                PacmanService(commandRunner: commandRunner),
+              ];
+              return UpdatesProvider(sources: services);
             },
           ),
         ],
