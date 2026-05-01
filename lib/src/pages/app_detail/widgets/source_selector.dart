@@ -14,6 +14,8 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter_svg/svg.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class SourceSelector extends StatelessWidget {
@@ -31,7 +33,7 @@ class SourceSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Select<String>(
-      itemBuilder: (context, item) => Text(item),
+      itemBuilder: (context, item) => _buildItem(context, item),
       popupConstraints: const BoxConstraints(maxHeight: 300, maxWidth: 280),
       onChanged: (value) {
         if (value != null) {
@@ -43,10 +45,45 @@ class SourceSelector extends StatelessWidget {
       popup: SelectPopup(
         items: SelectItemList(
           children: sources
-              .map((source) => SelectItemButton(value: source, child: Text(source)))
+              .map((source) => SelectItemButton(
+                value: source,
+                child: _buildItem(context, source),
+              ))
               .toList(),
         ),
       ).call,
+    );
+  }
+
+  Widget _buildItem(BuildContext context, String source) {
+    final theme = Theme.of(context);
+    final size = theme.iconTheme.medium.size;
+    final colorFilter = ColorFilter.mode(
+      theme.colorScheme.secondaryForeground,
+      BlendMode.srcATop,
+    );
+    Widget icon = Icon(Symbols.deployed_code);
+    if (source.startsWith("Flatpak")) {
+      icon = SvgPicture.asset(
+        'assets/icons/flatpak.svg',
+        width: size,
+        height: size,
+        colorFilter: colorFilter,
+      );
+    } else if (source.startsWith("Pacman")) {
+      icon = SvgPicture.asset(
+        'assets/icons/arch.svg',
+        width: size,
+        height: size,
+        colorFilter: colorFilter,
+      );
+    }
+    return Row(
+      spacing: 8 * theme.scaling,
+      children: [
+        icon,
+        Text(source),
+      ],
     );
   }
 }
