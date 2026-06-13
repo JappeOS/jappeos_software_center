@@ -53,32 +53,112 @@ class FlatpakService implements PackageService {
   }
 
   @override
+  Future<List<AppModel>> getExploreApps() async {
+    final result = await _runFlatpakExploreList();
+    if (result == null || !result.success || result.stdout.trim().isEmpty) {
+      return const [];
+    }
+
+    final apps = <AppModel>[];
+    final seenIds = <String>{};
+    for (final line in const LineSplitter().convert(result.stdout)) {
+      if (line.trim().isEmpty) {
+        continue;
+      }
+      final columns = _splitColumns(line);
+      final id = _column(columns, 0);
+      if (id.isEmpty || seenIds.contains(id)) {
+        continue;
+      }
+      final name = _column(columns, 1);
+      final description = _column(columns, 2);
+      final remaining = columns.length > 3 ? columns.sublist(3) : const <String>[];
+      final iconHint = _pickIconHint(remaining);
+      final popularity = _pickPopularity(remaining);
+      apps.add(
+        AppModel(
+          id: id,
+          name: name.isEmpty ? _nameFromId(id) : name,
+          description: description.isEmpty
+              ? 'No description available.'
+              : description,
+          icon: iconHint ?? id,
+          backend: 'flatpak',
+          installState: InstallState.notInstalled,
+          version: null,
+          popularityScore: popularity ?? 0,
+        ),
+      );
+      seenIds.add(id);
+    }
+
+    return apps;
+  }
+
+  Future<CommandResult?> _runFlatpakExploreList() async {
+    final commandVariants = <List<String>>[
+      ['remote-ls', '--app', '--columns=application,name,description,download-size'],
+      ['remote-ls', '--app', '--columns=application,name,description,icon'],
+      ['remote-ls', '--app', '--columns=application,name,description'],
+      ['remote-ls', '--app', '--columns=application,name'],
+    ];
+
+    for (final args in commandVariants) {
+      try {
+        final result = await _commandRunner.run(
+          'flatpak',
+          args,
+          timeout: _defaultTimeout,
+        );
+        if (result.success && result.stdout.trim().isNotEmpty) {
+          return result;
+        }
+      } on CommandStartException {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  @override
   Future<AppDetailModel?> getAppDetails(String id) async {
-    CommandResult result;
-    try {
-      result = await _commandRunner.run('flatpak', [
-        'info',
-        '--show-metadata',
-        id,
-      ], timeout: _defaultTimeout);
-    } on CommandStartException {
+    final resolved = await _resolveFlatpakMetadata(id);
+    if (resolved == null) {
       return null;
     }
 
-    if (!result.success) {
-      return null;
-    }
-
-    final metadata = _parseFlatpakMetadata(result.stdout);
+    final metadata = _parseFlatpakMetadata(resolved.metadata);
     if (metadata.isEmpty) {
       return null;
     }
 
     final appSection = metadata['Application'] ?? const <String, String>{};
     final contextSection = metadata['Context'] ?? const <String, String>{};
+    final remoteInfo = resolved.isInstalled
+        ? null
+        : await _loadRemoteInfoFields(resolved.origin, id);
 
-    final name = appSection['name']?.trim();
-    final description = appSection['comment']?.trim();
+    final appIdFromMetadata = _firstNonEmpty([
+      appSection['id'],
+      remoteInfo?['ID'],
+      id,
+    ]);
+    final appId = _normalizeFlatpakAppId(appIdFromMetadata ?? id);
+
+    final rawName = _firstNonEmpty([
+      appSection['name'],
+      remoteInfo?['Name'],
+      _summaryName(remoteInfo?['SummaryLine']),
+      _nameFromId(appId),
+      remoteInfo?['ID'],
+    ]);
+    final name = _displayNameFromRaw(rawName, appId);
+    final description = _firstNonEmpty([
+      appSection['comment'],
+      remoteInfo?['Comment'],
+      remoteInfo?['Description'],
+    ]);
     final version = appSection['version']?.trim();
     final license = appSection['project_license']?.trim();
     final developer = appSection['developer_name']?.trim();
@@ -86,10 +166,10 @@ class FlatpakService implements PackageService {
     final issueTracker = appSection['bugtracker']?.trim();
     final help = appSection['help']?.trim();
 
-    final appId = appSection['id']?.trim().isNotEmpty == true
-        ? appSection['id']!.trim()
-        : id;
-    final origin = appSection['origin']?.trim();
+    final originFromMetadata = appSection['origin']?.trim();
+    final origin = (originFromMetadata != null && originFromMetadata.isNotEmpty)
+        ? originFromMetadata
+        : resolved.origin;
     final sourceLabel = origin == null || origin.isEmpty
         ? 'Flatpak'
         : 'Flatpak ($origin)';
@@ -123,13 +203,15 @@ class FlatpakService implements PackageService {
     return AppDetailModel(
       app: AppModel(
         id: appId,
-        name: name == null || name.isEmpty ? _nameFromId(appId) : name,
+        name: name,
         description: description == null || description.isEmpty
             ? 'No description available.'
             : description,
         icon: appId,
         backend: sourceLabel,
-        installState: InstallState.installed,
+        installState: resolved.isInstalled
+            ? InstallState.installed
+            : InstallState.notInstalled,
         version: version == null || version.isEmpty ? null : version,
       ),
       sourceLabel: sourceLabel,
@@ -150,6 +232,98 @@ class FlatpakService implements PackageService {
       links: links,
       extraInfo: extraInfo,
     );
+  }
+
+  Future<Map<String, String>?> _loadRemoteInfoFields(String? remote, String id) async {
+    if (remote == null || remote.isEmpty) {
+      return null;
+    }
+    try {
+      final result = await _commandRunner.run('flatpak', [
+        'remote-info',
+        remote,
+        id,
+      ], timeout: _defaultTimeout);
+      if (!result.success || result.stdout.trim().isEmpty) {
+        return null;
+      }
+      final fields = _parseColonFields(result.stdout);
+      final lines = const LineSplitter().convert(result.stdout);
+      if (lines.isNotEmpty) {
+        final headline = lines.first.trim();
+        if (headline.isNotEmpty) {
+          fields.putIfAbsent('SummaryLine', () => headline);
+        }
+      }
+      return fields.isEmpty ? null : fields;
+    } on CommandStartException {
+      return null;
+    }
+  }
+
+  Future<_ResolvedFlatpakMetadata?> _resolveFlatpakMetadata(String id) async {
+    try {
+      final installedResult = await _commandRunner.run('flatpak', [
+        'info',
+        '--show-metadata',
+        id,
+      ], timeout: _defaultTimeout);
+      if (installedResult.success && installedResult.stdout.trim().isNotEmpty) {
+        return _ResolvedFlatpakMetadata(
+          metadata: installedResult.stdout,
+          origin: null,
+          isInstalled: true,
+        );
+      }
+    } on CommandStartException {
+      return null;
+    }
+
+    final remotes = await _listFlatpakRemotes();
+    for (final remote in remotes) {
+      try {
+        final remoteResult = await _commandRunner.run('flatpak', [
+          'remote-info',
+          '--show-metadata',
+          remote,
+          id,
+        ], timeout: _defaultTimeout);
+        if (!remoteResult.success || remoteResult.stdout.trim().isEmpty) {
+          continue;
+        }
+        return _ResolvedFlatpakMetadata(
+          metadata: remoteResult.stdout,
+          origin: remote,
+          isInstalled: false,
+        );
+      } on CommandStartException {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<List<String>> _listFlatpakRemotes() async {
+    try {
+      final result = await _commandRunner.run('flatpak', [
+        'remotes',
+        '--columns=name',
+      ], timeout: _defaultTimeout);
+      if (!result.success || result.stdout.trim().isEmpty) {
+        return const [];
+      }
+      final remotes = <String>[];
+      for (final line in const LineSplitter().convert(result.stdout)) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.toLowerCase() == 'name') {
+          continue;
+        }
+        remotes.add(trimmed);
+      }
+      return remotes;
+    } on CommandStartException {
+      return const [];
+    }
   }
 
   @override
@@ -337,6 +511,53 @@ class FlatpakService implements PackageService {
     return value.isEmpty ? null : value;
   }
 
+  List<String> _splitColumns(String line) {
+    if (line.contains('\t')) {
+      return line.split('\t');
+    }
+    // Some Flatpak versions print aligned columns with spaces instead of tabs.
+    return line.split(RegExp(r'\s{2,}'));
+  }
+
+  String? _pickIconHint(List<String> remainingColumns) {
+    for (final raw in remainingColumns) {
+      final value = raw.trim();
+      if (value.isEmpty) {
+        continue;
+      }
+      final lower = value.toLowerCase();
+      if (lower.startsWith('http://') ||
+          lower.startsWith('https://') ||
+          lower.startsWith('/') ||
+          lower.endsWith('.png') ||
+          lower.endsWith('.svg') ||
+          lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.webp')) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  double? _pickPopularity(List<String> remainingColumns) {
+    for (final raw in remainingColumns.reversed) {
+      final value = raw.trim().replaceAll(',', '');
+      if (value.isEmpty) {
+        continue;
+      }
+      final parsed = double.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+      final bytes = _parseByteCount(value);
+      if (bytes != null) {
+        return bytes.toDouble();
+      }
+    }
+    return null;
+  }
+
   String _nameFromId(String id) {
     final parts = id.split('.');
     if (parts.isEmpty) {
@@ -344,6 +565,83 @@ class FlatpakService implements PackageService {
     }
 
     return parts.last;
+  }
+
+  String _displayNameFromRaw(String? rawName, String appId) {
+    final trimmed = rawName?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return _nameFromId(appId);
+    }
+    if (trimmed == appId) {
+      return _nameFromId(appId);
+    }
+    return trimmed;
+  }
+
+  String _normalizeFlatpakAppId(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('app/') || trimmed.startsWith('runtime/')) {
+      final parts = trimmed.split('/');
+      if (parts.length >= 2 && parts[1].trim().isNotEmpty) {
+        return parts[1].trim();
+      }
+    }
+    return trimmed;
+  }
+
+  String? _summaryName(String? summaryLine) {
+    if (summaryLine == null) {
+      return null;
+    }
+    final trimmed = summaryLine.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    final separator = trimmed.indexOf(' - ');
+    if (separator <= 0) {
+      return null;
+    }
+    final maybeName = trimmed.substring(0, separator).trim();
+    return maybeName.isEmpty ? null : maybeName;
+  }
+
+  String? _firstNonEmpty(List<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  Map<String, String> _parseColonFields(String stdout) {
+    final fields = <String, String>{};
+    for (final line in const LineSplitter().convert(stdout)) {
+      final separator = line.indexOf(':');
+      if (separator <= 0) {
+        continue;
+      }
+      final key = line.substring(0, separator).trim();
+      final value = line.substring(separator + 1).trim();
+      if (key.isEmpty || value.isEmpty) {
+        continue;
+      }
+      fields[key] = value;
+      if (key.startsWith('Name')) {
+        fields.putIfAbsent('Name', () => value);
+      } else if (key.startsWith('Comment')) {
+        fields.putIfAbsent('Comment', () => value);
+      } else if (key.startsWith('Description')) {
+        fields.putIfAbsent('Description', () => value);
+      } else if (key.startsWith('ID')) {
+        fields.putIfAbsent('ID', () => value);
+      }
+    }
+    return fields;
   }
 
   Map<String, Map<String, String>> _parseFlatpakMetadata(String stdout) {
@@ -397,7 +695,10 @@ class FlatpakService implements PackageService {
     if (value.isEmpty) {
       return null;
     }
-    final match = RegExp(r'([0-9]+(?:\\.[0-9]+)?)\\s*([KMGTP]?i?B)', caseSensitive: false).firstMatch(value);
+    final match = RegExp(
+      r'([0-9]+(?:\.[0-9]+)?)\s*([KMGTP]?i?B)',
+      caseSensitive: false,
+    ).firstMatch(value);
     if (match == null) {
       return null;
     }
@@ -423,4 +724,16 @@ class FlatpakService implements PackageService {
     }
     return (number * factor).round();
   }
+}
+
+class _ResolvedFlatpakMetadata {
+  final String metadata;
+  final String? origin;
+  final bool isInstalled;
+
+  const _ResolvedFlatpakMetadata({
+    required this.metadata,
+    required this.origin,
+    required this.isInstalled,
+  });
 }

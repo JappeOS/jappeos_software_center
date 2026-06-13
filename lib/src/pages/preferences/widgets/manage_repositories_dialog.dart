@@ -150,7 +150,7 @@ class _ManageRepositoriesDialogState extends State<ManageRepositoriesDialog> {
                     final repo = _repos[provider];
                     assert(repo != null);
                     final val = await _addRepository();
-                    if (val?.trim().isEmpty ?? false) return;
+                    if (val?.trim().isEmpty ?? true) return;
                     setState(() => repo!.add(val!));
                   },
                   size: ButtonSize.small,

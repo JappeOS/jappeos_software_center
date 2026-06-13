@@ -24,6 +24,7 @@ class AppModel {
   final String backend;
   final InstallState installState;
   final String? version;
+  final double popularityScore;
 
   AppModel({
     required this.id,
@@ -32,6 +33,7 @@ class AppModel {
     required this.icon,
     required this.backend,
     required this.installState,
-    required this.version
+    required this.version,
+    this.popularityScore = 0.0,
   });
 }

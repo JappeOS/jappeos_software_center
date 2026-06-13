@@ -88,6 +88,79 @@ class PacmanService implements PackageService {
   }
 
   @override
+  Future<List<AppModel>> getExploreApps() async {
+    CommandResult listResult;
+    try {
+      listResult = await _commandRunner.run(
+        'pacman',
+        ['-Slq'],
+        timeout: _defaultTimeout,
+        environment: const {'LC_ALL': 'C'},
+      );
+    } on CommandStartException {
+      return const [];
+    }
+
+    if (!listResult.success) {
+      throw PacmanServiceException(
+        'pacman -Slq failed (exit ${listResult.exitCode}): ${listResult.stderr}',
+      );
+    }
+
+    final packageNames = _parsePackageNames(listResult.stdout);
+    if (packageNames.isEmpty) {
+      return const [];
+    }
+
+    final apps = <AppModel>[];
+    final seen = <String>{};
+    for (final chunk in _chunk(packageNames, 80)) {
+      final infoResult = await _commandRunner.run(
+        'pacman',
+        ['-Si', ...chunk],
+        timeout: _defaultTimeout,
+        environment: const {'LC_ALL': 'C'},
+      );
+
+      if (!infoResult.success) {
+        continue;
+      }
+
+      final infoByName = _parseSyncInfo(infoResult.stdout);
+      for (final package in chunk) {
+        if (seen.contains(package)) {
+          continue;
+        }
+        final info = infoByName[package];
+        final name = info?['Name']?.trim();
+        if (name == null || name.isEmpty) {
+          continue;
+        }
+        final description = info?['Description']?.trim();
+        final version = info?['Version']?.trim();
+        final popularity = double.tryParse((info?['Popularity'] ?? '').trim()) ?? 0.0;
+        apps.add(
+          AppModel(
+            id: name,
+            name: name,
+            description: description == null || description.isEmpty
+                ? 'Pacman package'
+                : description,
+            icon: name,
+            backend: 'pacman',
+            installState: InstallState.notInstalled,
+            version: version == null || version.isEmpty ? null : version,
+            popularityScore: popularity,
+          ),
+        );
+        seen.add(name);
+      }
+    }
+
+    return apps;
+  }
+
+  @override
   Future<AppDetailModel?> getAppDetails(String id) async {
     final result = await _runInfoCommand(id);
     if (result == null) {

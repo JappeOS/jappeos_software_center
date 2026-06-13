@@ -123,7 +123,10 @@ class _AppIconState extends State<AppIcon> {
 class _IconResolver {
   static final Map<String, String?> _cache = <String, String?>{};
   static final Set<String> _scannedFlatpakRoots = <String>{};
+  static final Set<String> _scannedFlatpakAppstreamRoots = <String>{};
   static final Map<String, String> _flatpakIconIndex = <String, String>{};
+  static bool _desktopIndexBuilt = false;
+  static final Map<String, String> _desktopIconByToken = <String, String>{};
 
   static Future<String?> resolve(String? rawIcon) async {
     final icon = rawIcon?.trim() ?? '';
@@ -162,6 +165,13 @@ class _IconResolver {
     if (flatpakTreeIcon != null) {
       _cache[icon] = flatpakTreeIcon;
       return flatpakTreeIcon;
+    }
+
+    final desktopIcon = await _findDesktopIcon(icon);
+    if (desktopIcon != null) {
+      final resolvedDesktopIcon = await resolve(desktopIcon);
+      _cache[icon] = resolvedDesktopIcon;
+      return resolvedDesktopIcon;
     }
 
     _cache[icon] = null;
@@ -244,15 +254,24 @@ class _IconResolver {
 
   static Future<String?> _findFlatpakAppIcon(String name) async {
     await _scanFlatpakRoot('/var/lib/flatpak/app');
+    await _scanFlatpakAppstreamRoot('/var/lib/flatpak/appstream');
     final home = Platform.environment['HOME'];
     if (home != null && home.isNotEmpty) {
       await _scanFlatpakRoot('$home/.local/share/flatpak/app');
+      await _scanFlatpakAppstreamRoot('$home/.local/share/flatpak/appstream');
+    }
+
+    final direct = _flatpakIconIndex[name.toLowerCase()];
+    if (direct != null) {
+      return direct;
     }
 
     const extensions = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
-    for (final ext in extensions) {
-      final key = '$name.$ext'.toLowerCase();
-      final match = _flatpakIconIndex[key];
+    for (final candidate in <String>[
+      ...extensions.map((ext) => '$name.$ext'),
+      ...extensions.map((ext) => '$name-symbolic.$ext'),
+    ]) {
+      final match = _flatpakIconIndex[candidate.toLowerCase()];
       if (match != null) {
         return match;
       }
@@ -280,21 +299,122 @@ class _IconResolver {
         if (!path.contains('/files/share/icons/')) {
           continue;
         }
-
-        final lower = path.toLowerCase();
-        if (!(lower.endsWith('.png') ||
-            lower.endsWith('.jpg') ||
-            lower.endsWith('.jpeg') ||
-            lower.endsWith('.webp') ||
-            lower.endsWith('.svg'))) {
-          continue;
-        }
-
-        final fileName = path.split('/').last.toLowerCase();
-        _flatpakIconIndex.putIfAbsent(fileName, () => path);
+        _indexIconFile(entity);
       }
     } catch (_) {
       // Ignore permission/path failures and keep best-effort behavior.
     }
+  }
+
+  static Future<void> _scanFlatpakAppstreamRoot(String rootPath) async {
+    if (_scannedFlatpakAppstreamRoots.contains(rootPath)) {
+      return;
+    }
+    _scannedFlatpakAppstreamRoots.add(rootPath);
+
+    final root = Directory(rootPath);
+    if (!await root.exists()) {
+      return;
+    }
+
+    try {
+      await for (final entity in root.list(recursive: true, followLinks: false)) {
+        if (entity is! File) {
+          continue;
+        }
+        final path = entity.path;
+        if (!path.contains('/icons/')) {
+          continue;
+        }
+        _indexIconFile(entity);
+      }
+    } catch (_) {
+      // Ignore permission/path failures and keep best-effort behavior.
+    }
+  }
+
+  static void _indexIconFile(File entity) {
+    final path = entity.path;
+    final lower = path.toLowerCase();
+    if (!(lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.svg'))) {
+      return;
+    }
+
+    final fileName = path.split('/').last.toLowerCase();
+    _flatpakIconIndex.putIfAbsent(fileName, () => path);
+  }
+
+  static Future<String?> _findDesktopIcon(String hint) async {
+    await _buildDesktopIndex();
+    final normalized = hint.toLowerCase();
+    return _desktopIconByToken[normalized];
+  }
+
+  static Future<void> _buildDesktopIndex() async {
+    if (_desktopIndexBuilt) {
+      return;
+    }
+    _desktopIndexBuilt = true;
+
+    final home = Platform.environment['HOME'];
+    final desktopDirs = <String>[
+      '/usr/share/applications',
+      '/var/lib/flatpak/exports/share/applications',
+      if (home != null) '$home/.local/share/applications',
+      if (home != null) '$home/.local/share/flatpak/exports/share/applications',
+    ];
+
+    for (final dirPath in desktopDirs) {
+      final dir = Directory(dirPath);
+      if (!await dir.exists()) {
+        continue;
+      }
+
+      try {
+        await for (final entity in dir.list(recursive: false, followLinks: false)) {
+          if (entity is! File || !entity.path.endsWith('.desktop')) {
+            continue;
+          }
+          final content = await entity.readAsString();
+          final icon = _desktopValue(content, 'Icon');
+          if (icon == null || icon.trim().isEmpty) {
+            continue;
+          }
+          final iconValue = icon.trim();
+
+          final filename = entity.path.split('/').last.replaceAll('.desktop', '').toLowerCase();
+          _desktopIconByToken.putIfAbsent(filename, () => iconValue);
+
+          final name = _desktopValue(content, 'Name');
+          if (name != null && name.trim().isNotEmpty) {
+            _desktopIconByToken.putIfAbsent(name.trim().toLowerCase(), () => iconValue);
+          }
+
+          final exec = _desktopValue(content, 'Exec');
+          if (exec != null && exec.trim().isNotEmpty) {
+            final first = exec.trim().split(' ').first;
+            final execName = first.split('/').last.trim().toLowerCase();
+            if (execName.isNotEmpty) {
+              _desktopIconByToken.putIfAbsent(execName, () => iconValue);
+            }
+          }
+        }
+      } catch (_) {
+        // Best effort index; ignore failures.
+      }
+    }
+  }
+
+  static String? _desktopValue(String content, String key) {
+    final pattern = RegExp('^$key=(.+)\$', multiLine: true);
+    final match = pattern.firstMatch(content);
+    if (match == null) {
+      return null;
+    }
+    return match.group(1);
   }
 }

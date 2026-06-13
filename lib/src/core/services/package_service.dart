@@ -20,6 +20,7 @@ import '../../models/update_model.dart';
 
 abstract class PackageService {
   String get sourceId;
+  Future<List<AppModel>> getExploreApps();
   Future<List<AppModel>> getInstalledApps();
   Future<List<UpdateModel>> getAvailableUpdates();
   Future<AppDetailModel?> getAppDetails(String id);

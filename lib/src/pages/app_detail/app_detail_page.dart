@@ -20,6 +20,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../models/app_detail_model.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
+import '../../providers/explore_provider.dart';
 import '../../providers/installed_provider.dart';
 import '../shared/page_base.dart';
 import 'widgets/app_header.dart';
@@ -61,7 +62,9 @@ class _AppDetailPageState extends State<AppDetailPage> {
     }
 
     try {
-      final details = await context.read<InstalledProvider>().getAppDetails(widget.appId);
+      final installedProvider = context.read<InstalledProvider>();
+      await installedProvider.loadIfNeeded();
+      final details = await installedProvider.getAppDetails(widget.appId);
       if (!mounted) {
         return;
       }
@@ -89,6 +92,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final installedProvider = context.watch<InstalledProvider>();
+    final exploreProvider = context.watch<ExploreProvider>();
 
     if (_isLoading) {
       return PageBase(
@@ -124,12 +128,17 @@ class _AppDetailPageState extends State<AppDetailPage> {
     }
 
     final selected = _details[_selectedIndex];
-    final sources = _details.map((detail) => detail.sourceLabel).toList();
-    final isInstalled = installedProvider.apps.any(
-      (app) =>
-          app.id == selected.app.id &&
-          _normalizeBackend(app.backend) == _normalizeBackend(selected.app.backend),
+    final displayName = _resolveDisplayName(
+      selected,
+      exploreProvider.apps,
+      installedProvider.apps,
     );
+    final sources = _details.map((detail) => detail.sourceLabel).toList();
+    final isInstalledByList = installedProvider.apps.any(
+      (app) => _normalizeAppId(app.id) == _normalizeAppId(selected.app.id),
+    );
+    final isInstalled = isInstalledByList ||
+        selected.app.installState == InstallState.installed;
     final installButtonState = _actionInProgress
         ? InstallButtonState.progress
         : (isInstalled ? InstallButtonState.installed : InstallButtonState.notInstalled);
@@ -137,7 +146,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
     final children = [
       Gap(16 * theme.scaling),
       AppHeader(
-        detail: selected,
+        detail: _withDisplayName(selected, displayName),
         sources: sources,
         onSourceChanged: (source) {
           final index = sources.indexOf(source);
@@ -345,15 +354,108 @@ class _AppDetailPageState extends State<AppDetailPage> {
     );
   }
 
-  String _normalizeBackend(String backend) {
-    final lower = backend.toLowerCase();
-    if (lower.startsWith('flatpak')) {
-      return 'flatpak';
+  String _normalizeAppId(String id) {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
     }
-    if (lower.startsWith('pacman')) {
-      return 'pacman';
+    if (trimmed.startsWith('app/') || trimmed.startsWith('runtime/')) {
+      final parts = trimmed.split('/');
+      if (parts.length >= 2 && parts[1].trim().isNotEmpty) {
+        return parts[1].trim();
+      }
     }
-    return lower;
+    final branchSep = trimmed.indexOf('//');
+    if (branchSep > 0) {
+      return trimmed.substring(0, branchSep);
+    }
+    return trimmed;
+  }
+
+  String _resolveDisplayName(
+    AppDetailModel detail,
+    List<AppModel> exploreApps,
+    List<AppModel> installedApps,
+  ) {
+    final current = detail.app.name.trim();
+    if (current.isEmpty) {
+      return _nameFromId(detail.app.id);
+    }
+
+    final normalizedId = _normalizeAppId(detail.app.id);
+    final fromInstalled = installedApps
+        .where((app) => _normalizeAppId(app.id) == normalizedId)
+        .map((app) => app.name.trim())
+        .where((name) => name.isNotEmpty)
+        .cast<String?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (_isBetterName(fromInstalled, current, normalizedId)) {
+      return fromInstalled!;
+    }
+
+    final fromExplore = exploreApps
+        .where((app) => _normalizeAppId(app.id) == normalizedId)
+        .map((app) => app.name.trim())
+        .where((name) => name.isNotEmpty)
+        .cast<String?>()
+        .firstWhere((_) => true, orElse: () => null);
+    if (_isBetterName(fromExplore, current, normalizedId)) {
+      return fromExplore!;
+    }
+
+    return current;
+  }
+
+  bool _isBetterName(String? candidate, String current, String appId) {
+    if (candidate == null || candidate.isEmpty) {
+      return false;
+    }
+    if (candidate == current) {
+      return false;
+    }
+    final currentLooksFallback = current == _nameFromId(appId) || current == appId;
+    if (!currentLooksFallback) {
+      return false;
+    }
+    return candidate != appId;
+  }
+
+  String _nameFromId(String id) {
+    final normalized = _normalizeAppId(id);
+    final parts = normalized.split('.');
+    return parts.isEmpty ? normalized : parts.last;
+  }
+
+  AppDetailModel _withDisplayName(AppDetailModel detail, String displayName) {
+    if (displayName == detail.app.name) {
+      return detail;
+    }
+    final app = AppModel(
+      id: detail.app.id,
+      name: displayName,
+      description: detail.app.description,
+      icon: detail.app.icon,
+      backend: detail.app.backend,
+      installState: detail.app.installState,
+      version: detail.app.version,
+      popularityScore: detail.app.popularityScore,
+    );
+    return AppDetailModel(
+      app: app,
+      sourceLabel: detail.sourceLabel,
+      sourceKey: detail.sourceKey,
+      longDescription: detail.longDescription,
+      developer: detail.developer,
+      license: detail.license,
+      ageRating: detail.ageRating,
+      downloadCount: detail.downloadCount,
+      installedSizeBytes: detail.installedSizeBytes,
+      downloadSizeBytes: detail.downloadSizeBytes,
+      installDate: detail.installDate,
+      screenshots: detail.screenshots,
+      links: detail.links,
+      extraInfo: detail.extraInfo,
+    );
   }
 
   List<Widget> _buildLinkButtons(BuildContext context, AppDetailModel selected) {
