@@ -15,8 +15,15 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:jappeos_software_center/src/widgets/app_tile.dart';
+import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../../models/update_model.dart';
+import '../../providers/navigation_provider.dart';
+import '../../providers/updates_provider.dart';
+import '../../utils.dart';
+import '../../widgets/app_icon.dart';
+import '../../widgets/feedback_state.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
 import 'widgets/app_grid.dart';
@@ -32,7 +39,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UpdatesProvider>().loadIfNeeded();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final updateProvider = context.watch<UpdatesProvider>();
+    final updates = updateProvider.updates;
+
     final children = [
       FeaturedBanner(
         item: FeatuedItem(
@@ -60,39 +78,85 @@ class _HomePageState extends State<HomePage> {
       CategoryGrid(),
       SectionHeader(
         title: "Recent Updates",
-        actionLabel: "Update All (2)",
-        onViewAll: () {
-          // Handle view all action
-        },
-      ),
-      ButtonGroup(
-        direction: Axis.vertical,
-        children: [
-          AppTile(
-            icon: Icon(Icons.settings),
-            title: "Settings",
-            description: "Manage your application settings",
-            trailing: PrimaryButton(
-              child: const Text("Update"),
-              onPressed: () {},
-            ),
-            trailingText: "66 MB",
-            onPressed: () {},
-          ),
-          AppTile(
-            icon: Icon(Icons.settings),
-            title: "Settings",
-            description: "Manage your application settings",
-            trailing: PrimaryButton(
-              child: const Text("Update"),
-              onPressed: () {},
-            ),
-            trailingText: "66 MB",
-            onPressed: () {},
-          ),
-        ],
+        actionLabel: "Show All (${updates.length})",
+        onViewAll: updates.isNotEmpty
+            ? () => context.read<NavigationProvider>().goUpdates()
+            : null,
       ),
     ];
+
+    if (updateProvider.isLoading && updates.isEmpty) {
+      children.add(
+        FeedbackStateCard(
+          icon: Icons.refresh,
+          title: 'Loading updates...',
+          description: 'Checking all package sources for available updates.',
+          action: const PrimaryButton(
+            onPressed: null,
+            leading: AspectRatio(
+              aspectRatio: 1,
+              child: CircularProgressIndicator(),
+            ),
+            child: Text('Loading'),
+          ),
+        ),
+      );
+    } else if (updateProvider.errorMessage != null && updates.isEmpty) {
+      children.add(
+        FeedbackStateCard(
+          icon: Icons.warning,
+          iconForeground: Colors.yellow,
+          title: 'Failed to load updates',
+          description: 'Please check your network connection and try again.\n\n${updateProvider.errorMessage!}',
+          action: PrimaryButton(onPressed: _refresh, child: const Text('Retry')),
+        ),
+      );
+    } else if (updates.isEmpty) {
+      children.add(
+        FeedbackStateCard(
+          icon: Icons.check,
+          iconForeground: Colors.green,
+          title: 'Your system is up to date',
+          description: 'No updates are available from active package sources.',
+          action: PrimaryButton(onPressed: _refresh, child: const Text('Refresh')),
+        ),
+      );
+    } else {
+      children.add(
+        ButtonGroup(
+          direction: Axis.vertical,
+          children: updates.take(3).map((update) {
+            final busy = updateProvider.currentUpdateIds.contains(update.id);
+            return AppTile(
+              icon: update.isSystem
+                  ? const Icon(Icons.system_update_alt)
+                  : AppIcon(icon: update.icon, size: 30),
+              title: update.name,
+              description: update.description,
+              trailingText: formatBytes(update.downloadSizeBytes),
+              trailing: PrimaryButton(
+                onPressed: busy ? null : () => _updateOne(update),
+                child: Text(busy ? 'Updating...' : 'Update'),
+              ),
+              onPressed: update.isSystem || update.appId == '__all__'
+                  ? null
+                  : () => context.read<NavigationProvider>().openApp(update.appId),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    if (updateProvider.errorMessage != null && updates.isNotEmpty) {
+      children.add(
+        AppTile(
+          icon: const Icon(Icons.warning),
+          title: 'Some sources failed to load',
+          description: updateProvider.errorMessage!,
+          trailing: PrimaryButton(onPressed: _refresh, child: const Text('Retry')),
+        ),
+      );
+    }
 
     return PageBase(
       itemCount: children.length,
@@ -101,4 +165,26 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+
+  Future<void> _refresh() async {
+    try {
+      await context.read<UpdatesProvider>().refresh();
+    } catch (error) {
+      _showError(error.toString());
+    }
+  }
+
+  Future<void> _updateOne(UpdateModel update) async {
+    try {
+      await context.read<UpdatesProvider>().updateById(update.id);
+    } catch (error) {
+      _showError(error.toString());
+    }
+  }
+
+  void _showError(String message) => showError(
+    context: context,
+    title: "Update failed",
+    message: message,
+  );
 }

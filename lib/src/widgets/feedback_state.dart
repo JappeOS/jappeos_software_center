@@ -69,3 +69,63 @@ class FeedbackState extends StatelessWidget {
     );
   }
 }
+
+class FeedbackStateCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconForeground;
+  final String title;
+  final String? description;
+  final Widget? action;
+
+  const FeedbackStateCard({
+    super.key,
+    required this.icon,
+    this.iconForeground = Colors.white,
+    required this.title,
+    this.description,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: iconForeground.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Icon(icon, size: 45, color: iconForeground),
+            ),
+          ),
+          const Gap(16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title).x4Large(),
+                if (description != null) ...[
+                  const Gap(8),
+                  Text(
+                    description!,
+                    maxLines: 10,
+                  ).muted().ellipsis(),
+                ],
+              ],
+            ),
+          ),
+          if (action != null) ...[
+            const Gap(16),
+            action!,
+          ],
+        ],
+      ),
+    );
+  }
+}
