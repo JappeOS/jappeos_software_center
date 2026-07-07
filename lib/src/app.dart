@@ -14,17 +14,18 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:jappeos_software_center/src/core/services/command_runner.dart';
-import 'package:jappeos_software_center/src/core/services/flatpak_service.dart';
-import 'package:jappeos_software_center/src/core/services/pacman_service.dart';
-import 'package:jappeos_software_center/src/providers/navigation_provider.dart';
-import 'package:jappeos_software_center/src/providers/explore_provider.dart';
-import 'package:jappeos_software_center/src/providers/installed_provider.dart';
-import 'package:jappeos_software_center/src/providers/updates_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import 'core/services/package_service.dart';
 import 'pages/shared/main_scaffold.dart';
+import 'core/services/command_runner.dart';
+import 'core/services/flatpak_service.dart';
+import 'core/services/pacman_service.dart';
+import 'providers/navigation_provider.dart';
+import 'providers/explore_provider.dart';
+import 'providers/installed_provider.dart';
+import 'providers/updates_provider.dart';
 
 final kThemeLight = _getTheme(false);
 final kThemeDark = _getTheme(true);
@@ -38,8 +39,25 @@ ThemeData _getTheme(bool dark) => ThemeData(
   surfaceBlur: 9,
 );
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   const App({super.key});
+
+  @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  final commandRunner = ProcessCommandRunner();
+  late List<PackageService> services;
+
+  @override
+  void initState() {
+    super.initState();
+    services = [
+      FlatpakService(commandRunner: commandRunner),
+      PacmanService(commandRunner: commandRunner),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,33 +73,16 @@ class App extends StatelessWidget {
           ChangeNotifierProvider(create: (_) => NavigationProvider()),
           ChangeNotifierProvider(
             create: (_) {
-              const commandRunner = ProcessCommandRunner();
-              final services = [
-                FlatpakService(commandRunner: commandRunner),
-                PacmanService(commandRunner: commandRunner),
-              ];
-              return InstalledProvider(
-                sources: services,
-              );
+              return InstalledProvider(sources: services);
             },
           ),
           ChangeNotifierProvider(
             create: (_) {
-              const commandRunner = ProcessCommandRunner();
-              final services = [
-                FlatpakService(commandRunner: commandRunner),
-                PacmanService(commandRunner: commandRunner),
-              ];
               return ExploreProvider(sources: services);
             },
           ),
           ChangeNotifierProvider(
             create: (_) {
-              const commandRunner = ProcessCommandRunner();
-              final services = [
-                FlatpakService(commandRunner: commandRunner),
-                PacmanService(commandRunner: commandRunner),
-              ];
               return UpdatesProvider(sources: services);
             },
           ),
