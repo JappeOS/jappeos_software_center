@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import '../../providers/navigation_provider.dart';
+import '../../providers/updates_provider.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({super.key});
@@ -30,54 +31,115 @@ class _SidebarState extends State<Sidebar> {
   int _selected = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UpdatesProvider>().loadIfNeeded();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
+    final updates = context.watch<UpdatesProvider>();
     final theme = Theme.of(context);
     final selectedStyle = ButtonStyle.secondary().copyWith(
       textStyle: (context, states, value) => value.copyWith(
         fontWeight: FontWeight.bold,
       ),
     );
-    return NavigationSidebar(
-      spacing: 2 * theme.scaling,
-      backgroundColor: theme.colorScheme.sidebar,
-      index: _selected,
-      onSelected: (key) {
-        _selected = key;
-        switch (_selected) {
-          case 0: nav.goHome();
-          case 1: nav.goExplore();
-          case 2: nav.goInstalled();
-          case 3: nav.goUpdates();
-          case 4: nav.goPreferences();
-        }
-        setState(() {});
-      },
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NavigationItem(
-          selectedStyle: selectedStyle,
-          label: Text("Home"),
-          child: Icon(Icons.home),
+        Expanded(
+          child: NavigationSidebar(
+            spacing: 2 * theme.scaling,
+            backgroundColor: theme.colorScheme.sidebar,
+            index: _selected < 5 ? _selected : null,
+            onSelected: (key) {
+              _selected = key;
+              switch (_selected) {
+                case 0: nav.goHome();
+                case 1: nav.goExplore();
+                case 2: nav.goInstalled();
+                case 3: nav.goUpdates();
+                case 4: nav.goPreferences();
+              }
+              setState(() {});
+            },
+            children: [
+              NavigationItem(
+                selectedStyle: selectedStyle,
+                label: Text("Home"),
+                child: Icon(Icons.home),
+              ),
+              NavigationItem(
+                selectedStyle: selectedStyle,
+                label: Text("Explore"),
+                child: Icon(Icons.explore),
+              ),
+              NavigationItem(
+                selectedStyle: selectedStyle,
+                label: Text("Installed"),
+                child: Icon(Icons.system_update_alt),
+              ),
+              NavigationItem(
+                selectedStyle: selectedStyle,
+                label: Text("Updates"),
+                child: _buildRedCircle(Icon(Icons.cached), updates.updates.isNotEmpty),
+              ),
+            ],
+          ),
         ),
-        NavigationItem(
-          selectedStyle: selectedStyle,
-          label: Text("Explore"),
-          child: Icon(Icons.explore),
+        NavigationSidebar(
+          spacing: 2 * theme.scaling,
+          backgroundColor: theme.colorScheme.sidebar,
+          index: _selected != 5 ? null : _selected,
+          keepMainAxisSize: true,
+          onSelected: (key) {
+            _selected = key;
+            switch (_selected) {
+              case 5: nav.goPreferences();
+            }
+            setState(() {});
+          },
+          children: [
+            NavigationItem(
+              index: 5,
+              selectedStyle: selectedStyle,
+              label: Text("Preferences"),
+              child: Icon(Icons.settings),
+            ),
+          ],
         ),
-        NavigationItem(
-          selectedStyle: selectedStyle,
-          label: Text("Installed"),
-          child: Icon(Icons.system_update_alt),
-        ),
-        NavigationItem(
-          selectedStyle: selectedStyle,
-          label: Text("Updates"),
-          child: Icon(Icons.cached),
-        ),
-        NavigationItem(
-          selectedStyle: selectedStyle,
-          label: Text("Preferences"),
-          child: Icon(Icons.settings),
+      ],
+    );
+  }
+
+  Widget _buildRedCircle(Widget child, bool enable) {
+    if (!enable) return child;
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        child,
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: SizedBox.square(
+            dimension: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(100),
+                border: BoxBorder.all(
+                  width: 1,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                  color: Theme.of(context).colorScheme.background,
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
