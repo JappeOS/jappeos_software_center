@@ -22,6 +22,7 @@ import '../../models/app_model.dart';
 import '../../models/install_state.dart';
 import '../../providers/explore_provider.dart';
 import '../../providers/installed_provider.dart';
+import '../../utils.dart';
 import '../shared/page_base.dart';
 import 'widgets/app_header.dart';
 import 'widgets/install_button.dart';
@@ -173,7 +174,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         children: [
           MainHeaderInfoButton(
             label: 'Installed Size',
-            value: _formatBytes(selected.installedSizeBytes),
+            value: formatBytes(selected.installedSizeBytes),
           ),
           MainHeaderInfoButton(
             label: 'Age Rating',
@@ -189,7 +190,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
           ),
           MainHeaderInfoButton(
             label: 'Downloads',
-            value: _formatDownloadCount(selected.downloadCount),
+            value: formatDownloadCount(selected.downloadCount),
           ),
         ],
       ),
@@ -492,36 +493,6 @@ class _AppDetailPageState extends State<AppDetailPage> {
           ),
         )
         .toList();
-  }
-
-  String _formatBytes(int? bytes) {
-    if (bytes == null || bytes <= 0) {
-      return 'Unknown';
-    }
-
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    double value = bytes.toDouble();
-    var unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex++;
-    }
-
-    final decimals = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
-    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
-  }
-
-  String _formatDownloadCount(int? count) {
-    if (count == null || count < 1) {
-      return 'Unknown';
-    }
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M+';
-    }
-    if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K+';
-    }
-    return '$count';
   }
 
   AppDetailModel _loadingDetail(String appId) {

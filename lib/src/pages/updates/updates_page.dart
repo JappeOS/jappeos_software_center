@@ -20,6 +20,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../models/update_model.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/updates_provider.dart';
+import '../../utils.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/app_tile.dart';
 import '../../widgets/feedback_state.dart';
@@ -109,7 +110,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   : AppIcon(icon: update.icon, size: 30),
               title: update.name,
               description: update.description,
-              trailingText: _formatBytes(update.downloadSizeBytes),
+              trailingText: formatBytes(update.downloadSizeBytes),
               trailing: PrimaryButton(
                 onPressed: busy ? null : () => _updateOne(update),
                 child: Text(busy ? 'Updating...' : 'Update'),
@@ -189,22 +190,5 @@ class _UpdatesPageState extends State<UpdatesPage> {
         );
       },
     );
-  }
-
-  String _formatBytes(int? bytes) {
-    if (bytes == null || bytes <= 0) {
-      return 'Unknown size';
-    }
-
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    double value = bytes.toDouble();
-    var unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex++;
-    }
-
-    final decimals = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
-    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
   }
 }
