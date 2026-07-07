@@ -337,23 +337,11 @@ class _AppDetailPageState extends State<AppDetailPage> {
     );
   }
 
-  void _showActionError(String message) {
-    if (!mounted) {
-      return;
-    }
-    showToast(
-      context: context,
-      builder: (context, overlay) {
-        return SurfaceCard(
-          child: Basic(
-            title: const Text('Action failed'),
-            content: Text(message),
-            trailing: const Icon(Icons.warning),
-          ),
-        );
-      },
-    );
-  }
+  void _showActionError(String message) => showError(
+    context: context,
+    title: "Action failed",
+    message: message,
+  );
 
   String _normalizeAppId(String id) {
     final trimmed = id.trim();

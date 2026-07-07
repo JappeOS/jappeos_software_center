@@ -14,6 +14,8 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:shadcn_flutter/shadcn_flutter.dart';
+
 String formatBytes(int? bytes) {
   if (bytes == null || bytes <= 0) {
     return 'Unknown';
@@ -42,4 +44,26 @@ String formatDownloadCount(int? count) {
     return '${(count / 1000).toStringAsFixed(1)}K+';
   }
   return '$count';
+}
+
+void showError({
+  required BuildContext context,
+  String title = "Action failed",
+  required String message,
+}) {
+  if (!context.mounted) {
+    return;
+  }
+  showToast(
+    context: context,
+    builder: (context, overlay) {
+      return SurfaceCard(
+        child: Basic(
+          title: const Text('Update failed'),
+          content: Text(message),
+          trailing: const Icon(Icons.warning),
+        ),
+      );
+    },
+  );
 }
