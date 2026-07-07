@@ -102,7 +102,7 @@ class _ManageRepositoriesDialogState extends State<ManageRepositoriesDialog> {
                       onChanged: (value) => value
                           ? setState(() => _item = index)
                           : setState(() => _item = null),
-                      child: Expanded(child: Text(it, textAlign: TextAlign.start)),
+                      child: Text(it, textAlign: TextAlign.start),
                     );
                   },
                 ) : SizedBox.expand(

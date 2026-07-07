@@ -77,10 +77,10 @@ packages:
     dependency: transitive
     description:
       name: cross_file
-      sha256: "28bb3ae56f117b5aec029d702a90f57d285cd975c3c5c281eaca38dbc47c5937"
+      sha256: "92c9c43c383bfa1c32079d3bc492d55d6d4318044b7b47edaff8971cbb555c51"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.5+2"
+    version: "0.3.5+4"
   data_widget:
     dependency: transitive
     description:
@@ -135,10 +135,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_svg
-      sha256: "1ded017b39c8e15c8948ea855070a5ff8ff8b3d5e83f3446e02d6bb12add7ad9"
+      sha256: "35882981abcbfb8c15b286f0cd690ff25bac12d95eff3e25ee207f37d4c42e7f"
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.4"
+    version: "2.3.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -201,10 +201,10 @@ packages:
     dependency: transitive
     description:
       name: json_annotation
-      sha256: cb09e7dac6210041fad964ed7fbee004f14258b4eca4040f72d1234062ace4c8
+      sha256: "2a743920d81b7910627f68ee2c9ac1fc0bfee32b9fc3403587d7c6791ca12f80"
       url: "https://pub.dev"
     source: hosted
-    version: "4.11.0"
+    version: "4.12.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -257,10 +257,10 @@ packages:
     dependency: "direct main"
     description:
       name: material_symbols_icons
-      sha256: "10a74aaa9e566c92f8aa14809d2dd78156fb93743348ebffec0345c38eb35706"
+      sha256: "49c532dd0b74544e9d8d93ec0f821d52ec532e7c9263c889ebe71b1be4f34ba7"
       url: "https://pub.dev"
     source: hosted
-    version: "4.2928.1"
+    version: "4.2951.0"
   meta:
     dependency: transitive
     description:
@@ -345,48 +345,48 @@ packages:
     dependency: transitive
     description:
       name: screen_retriever
-      sha256: "570dbc8e4f70bac451e0efc9c9bb19fa2d6799a11e6ef04f946d7886d2e23d0c"
+      sha256: ace919117a7520c13a50a6259e60c4a0d4cbe98809468792a91b5c5adada2aa6
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   screen_retriever_linux:
     dependency: transitive
     description:
       name: screen_retriever_linux
-      sha256: f7f8120c92ef0784e58491ab664d01efda79a922b025ff286e29aa123ea3dd18
+      sha256: "7b52006a5ceae1f3d5af7f77188c3290d6e7d8ded16d99809bea84967c65c257"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   screen_retriever_macos:
     dependency: transitive
     description:
       name: screen_retriever_macos
-      sha256: "71f956e65c97315dd661d71f828708bd97b6d358e776f1a30d5aa7d22d78a149"
+      sha256: a1489b99cce597c45a54b9aae1cd94c8d4705353b7e0bb2457a6e4de44e0ad8a
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   screen_retriever_platform_interface:
     dependency: transitive
     description:
       name: screen_retriever_platform_interface
-      sha256: ee197f4581ff0d5608587819af40490748e1e39e648d7680ecf95c05197240c0
+      sha256: "94a5535277510a63184ca178ce12a1449bc0b38618879aa1c18bf57369c5064a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   screen_retriever_windows:
     dependency: transitive
     description:
       name: screen_retriever_windows
-      sha256: "449ee257f03ca98a57288ee526a301a430a344a161f9202b4fcc38576716fe13"
+      sha256: dafc6922b0bfbf1d48cf3ccbf519b4fff47bdcb820da1728ea6db675fecc9324
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   shadcn_flutter:
     dependency: "direct main"
     description:
       path: "."
       ref: master
-      resolved-ref: "98b313d310bdf8ad6596afc804f0519e53db12b4"
+      resolved-ref: "6c129ab5d11f758e1352869efb2050379aa0f1c1"
       url: "https://github.com/JappeOS/shadcn_flutter.git"
     source: git
     version: "0.0.48"
@@ -463,10 +463,10 @@ packages:
     dependency: transitive
     description:
       name: vector_graphics
-      sha256: "6409a25046024f0f8c5d8a59fec314081e81f9d436b66ca4015a8b49772bf445"
+      sha256: "2306c03da2ba81724afeb589c351ebbc0aa7d86005925be8f8735856dbe5e42d"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.2.2"
   vector_graphics_codec:
     dependency: transitive
     description:
@@ -479,10 +479,10 @@ packages:
     dependency: transitive
     description:
       name: vector_graphics_compiler
-      sha256: "5a88dd14c0954a5398af544651c7fb51b457a2a556949bfb25369b210ef73a74"
+      sha256: "142a9146f447d15b10bdc00e21d5f4d83e5b32bb5f8f8f5a04c75311344923a3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.2.6"
   vector_math:
     dependency: transitive
     description:
@@ -495,10 +495,10 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "45caa6c5917fa127b5dbcfbd1fa60b14e583afdc08bfc96dda38886ca252eb60"
+      sha256: "0016aef94fc66495ac78af5859181e3f3bf2026bd8eecc72b9565601e19ab360"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.2"
+    version: "15.2.0"
   web:
     dependency: transitive
     description:
@@ -511,10 +511,10 @@ packages:
     dependency: transitive
     description:
       name: window_manager
-      sha256: "7eb6d6c4164ec08e1bf978d6e733f3cebe792e2a23fb07cbca25c2872bfdbdcd"
+      sha256: "05c231fd7b23d2380f14c5cc10b7b93d60d4fa4a2fb4e0f032de27e44b5560e9"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.1"
+    version: "0.5.2"
   xml:
     dependency: transitive
     description:
