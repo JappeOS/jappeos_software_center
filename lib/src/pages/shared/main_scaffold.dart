@@ -28,31 +28,50 @@ class MainScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      headers: [
-        WindowHeaderBar(
-          title: title,
-          backgroundColor: Theme.of(context).colorScheme.sidebar,
-          actions: [
-            Spacer(),
-            Flexible(
-              flex: 2,
-              child: SearchBar(),
-            ),
-            Spacer(),
-          ],
-        ),
-      ],
+      backgroundColor: Colors.transparent,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Sidebar(),
-          const VerticalDivider(),
-          Expanded(
+          SizedBox(
+            width: 240,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                //const Topbar(),
-                const Expanded(child: ContentSwitcher()),
+                WindowHeaderBar(
+                  leading: SizedBox.shrink(),
+                  title: title,
+                  centerTitle: true,
+                  backgroundColor: Theme.of(context).colorScheme.sidebar,
+                  isClosable: false,
+                  isMaximizable: false,
+                  isRestorable: false,
+                  isMinimizable: false,
+                ),
+                Expanded(child: const Sidebar()),
               ],
+            ),
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.background,
+              ),
+              child: Column(
+                children: [
+                  WindowHeaderBar(
+                    title: "",
+                    backgroundColor: Colors.transparent,
+                    centerActions: true,
+                    actions: [
+                      Flexible(
+                        flex: 2,
+                        child: SearchBar(),
+                      ),
+                    ],
+                  ),
+                  const Expanded(child: ContentSwitcher()),
+                ],
+              ),
             ),
           ),
         ],
