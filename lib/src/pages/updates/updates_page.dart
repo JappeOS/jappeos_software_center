@@ -35,8 +35,6 @@ class UpdatesPage extends StatefulWidget {
 }
 
 class _UpdatesPageState extends State<UpdatesPage> {
-  String? _activeUpdateId;
-
   @override
   void initState() {
     super.initState();
@@ -103,7 +101,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
         ButtonGroup(
           direction: Axis.vertical,
           children: updates.map((update) {
-            final busy = _activeUpdateId == update.id;
+            final busy = provider.currentUpdateIds.contains(update.id);
             return AppTile(
               icon: update.isSystem
                   ? const Icon(Icons.system_update_alt)
@@ -158,37 +156,16 @@ class _UpdatesPageState extends State<UpdatesPage> {
   }
 
   Future<void> _updateOne(UpdateModel update) async {
-    setState(() {
-      _activeUpdateId = update.id;
-    });
     try {
       await context.read<UpdatesProvider>().updateById(update.id);
     } catch (error) {
       _showError(error.toString());
-    } finally {
-      if (mounted) {
-        setState(() {
-          _activeUpdateId = null;
-        });
-      }
     }
   }
 
-  void _showError(String message) {
-    if (!mounted) {
-      return;
-    }
-    showToast(
-      context: context,
-      builder: (context, overlay) {
-        return SurfaceCard(
-          child: Basic(
-            title: const Text('Update failed'),
-            content: Text(message),
-            trailing: const Icon(Icons.warning),
-          ),
-        );
-      },
-    );
-  }
+  void _showError(String message) => showError(
+    context: context,
+    title: "Update failed",
+    message: message,
+  );
 }

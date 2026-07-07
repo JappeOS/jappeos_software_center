@@ -26,6 +26,7 @@ class UpdatesProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasLoaded = false;
   bool _isUpdatingAll = false;
+  final Set<String> _currentUpdateIds = {};
   String? _errorMessage;
 
   UpdatesProvider({required List<PackageService> sources}) : _sources = sources;
@@ -33,6 +34,7 @@ class UpdatesProvider extends ChangeNotifier {
   List<UpdateModel> get updates => _updates;
   bool get isLoading => _isLoading;
   bool get isUpdatingAll => _isUpdatingAll;
+  Set<String> get currentUpdateIds => _currentUpdateIds;
   String? get errorMessage => _errorMessage;
 
   Future<void> loadIfNeeded() async {
@@ -81,7 +83,13 @@ class UpdatesProvider extends ChangeNotifier {
       throw StateError('Update item not found: $id');
     }
 
-    await _serviceFor(update.sourceKey).update(update.appId);
+    _currentUpdateIds.add(id);
+    try {
+      await _serviceFor(update.sourceKey).update(update.appId);
+    } finally {
+      _currentUpdateIds.remove(id);
+    }
+
     await refresh();
   }
 
