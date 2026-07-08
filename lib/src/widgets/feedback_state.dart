@@ -100,7 +100,7 @@ class FeedbackStateCard extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Icon(icon, size: 45, color: iconForeground),
+              child: Icon(icon, size: 30, color: iconForeground),
             ),
           ),
           const Gap(16),
@@ -109,7 +109,7 @@ class FeedbackStateCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title).x4Large(),
+                Text(title).x2Large(),
                 if (description != null) ...[
                   const Gap(8),
                   Text(
