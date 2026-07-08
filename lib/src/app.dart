@@ -25,6 +25,7 @@ import 'core/services/pacman_service.dart';
 import 'providers/navigation_provider.dart';
 import 'providers/explore_provider.dart';
 import 'providers/installed_provider.dart';
+import 'providers/search_provider.dart';
 import 'providers/updates_provider.dart';
 
 final kThemeLight = _getTheme(false);
@@ -62,32 +63,33 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     const title = 'Software Center';
-    return ShadcnApp(
-      title: title,
-      theme: kThemeLight,
-      darkTheme: kThemeDark,
-      themeMode: ThemeMode.dark,
-      debugShowCheckedModeBanner: false,
-      home: MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => NavigationProvider()),
-          ChangeNotifierProvider(
-            create: (_) {
-              return InstalledProvider(sources: services);
-            },
-          ),
-          ChangeNotifierProvider(
-            create: (_) {
-              return ExploreProvider(sources: services);
-            },
-          ),
-          ChangeNotifierProvider(
-            create: (_) {
-              return UpdatesProvider(sources: services);
-            },
-          ),
-        ],
-        child: MainScaffold(title: title),
+    return  MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
+        ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            return InstalledProvider(sources: services);
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            return ExploreProvider(sources: services);
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            return UpdatesProvider(sources: services);
+          },
+        ),
+      ],
+      child: ShadcnApp(
+        title: title,
+        theme: kThemeLight,
+        darkTheme: kThemeDark,
+        themeMode: ThemeMode.dark,
+        debugShowCheckedModeBanner: false,
+        home: MainScaffold(title: title),
       ),
     );
   }

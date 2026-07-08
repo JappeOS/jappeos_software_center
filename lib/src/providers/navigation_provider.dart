@@ -37,6 +37,11 @@ class NavigationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void goSearch() {
+    _current = NavItem.search;
+    notifyListeners();
+  }
+
   void goInstalled() {
     _current = NavItem.installed;
     notifyListeners();

@@ -23,6 +23,7 @@ import '../../navigation/nav_item.dart';
 import '../explore/explore_page.dart';
 import '../home/home_page.dart';
 import '../installed/installed_page.dart';
+import '../search_results/search_results_page.dart';
 import '../updates/updates_page.dart';
 import '../preferences/preferences_page.dart';
 import '../app_detail/app_detail_page.dart';
@@ -45,6 +46,10 @@ class ContentSwitcher extends StatelessWidget {
         page = const ExplorePage();
         break;
 
+      case NavItem.search:
+        page = const SearchResultsPage();
+        break;
+
       case NavItem.installed:
         page = const InstalledPage();
         break;
@@ -64,6 +69,21 @@ class ContentSwitcher extends StatelessWidget {
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      transitionBuilder: (child, animation) {
+        return ScaleTransition(
+          //key: ValueKey<Key?>(child.key),
+          scale: animation.drive(
+            Tween(begin: 0.9, end: 1.0),
+          ),
+          child: FadeTransition(
+            //key: ValueKey<Key?>(child.key),
+            opacity: animation,
+            child: child,
+          ),
+        );
+      },
       child: KeyedSubtree(
         key: ValueKey(nav.valueKey),
         child: page,

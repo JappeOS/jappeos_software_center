@@ -17,6 +17,7 @@
 enum NavItem {
   home,
   explore,
+  search,
   installed,
   updates,
   appDetail,

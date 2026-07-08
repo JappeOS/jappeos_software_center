@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
 
   flutter_svg: ^2.2.4
+  fuzzywuzzy: ^1.2.0
   material_symbols_icons: ^4.2928.1
   provider: ^6.1.5+1
   shadcn_flutter:

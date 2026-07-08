@@ -14,7 +14,17 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
+import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+
+import '../../models/app_model.dart';
+import '../../models/install_state.dart';
+import '../../providers/explore_provider.dart';
+import '../../providers/navigation_provider.dart';
+import '../../providers/search_provider.dart';
+import '../../widgets/app_icon.dart';
 
 class SearchBar extends StatefulWidget {
   const SearchBar({super.key});
@@ -26,68 +36,99 @@ class SearchBar extends StatefulWidget {
 class _SearchBarState extends State<SearchBar> {
   bool get _popoverShown => _overlay != null;
   OverlayCompleter? _overlay;
+  final _controller = TextEditingController();
+  Timer? _searchTimer;
+  int _searchGeneration = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<SearchProvider>();
     final theme = Theme.of(context);
     return TextField(
+      controller: _controller,
       features: [
         InputFeature.leading(Icon(Icons.search)),
         InputFeature.trailing(Icon(Icons.arrow_forward)),
       ],
       placeholder: Text("Search software..."),
-      onChanged: (s) {
-        if (_popoverShown && s.isEmpty) {
+      onChanged: (s) async {
+        final generation = ++_searchGeneration;
+        _searchTimer?.cancel();
+        _searchTimer = Timer(const Duration(milliseconds: 300), () async {
+          try {
+            await provider.search(context.read<ExploreProvider>(), name: s);
+          } finally {
+            if (!mounted || generation != _searchGeneration) {
+              return; // stale search
+            }
+          }
+        });
+        if (_popoverShown && s.trim().isEmpty) {
           _overlay!.remove();
           _overlay!.dispose();
           _overlay = null;
           return;
         }
         if (!_popoverShown) {
+          _overlay?.remove();
+          _overlay?.dispose();
           _overlay = showPopover(
             context: context,
             alignment: Alignment.topCenter,
             offset: const Offset(0, 8),
             widthConstraint: PopoverConstraint.anchorMaxSize,
-            builder: (context) => ModalContainer(
-              padding: EdgeInsets.all(8 * theme.scaling),
-              child: Column(
-                spacing: 4 * theme.scaling,
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SearchItem(
-                    icon: Icon(Icons.settings_applications),
-                    name: "App 1",
-                    installed: true,
-                    onPressed: () {},
-                  ),
-                  _SearchItem(
-                    icon: Icon(Icons.settings_applications),
-                    name: "App 2",
-                    installed: false,
-                    onPressed: () {},
-                  ),
-                  _SearchItem(
-                    icon: Icon(Icons.settings_applications),
-                    name: "App 3",
-                    installed: false,
-                    onPressed: () {},
-                  ),
-                  _SearchItem(
-                    icon: Icon(Icons.settings_applications),
-                    name: "App 4",
-                    installed: false,
-                    onPressed: () {},
-                  ),
-                  const Divider(),
-                  _SearchItem(
-                    icon: Icon(Icons.more),
-                    name: "See All",
-                    installed: false,
-                    onPressed: () {},
-                  ),
-                ],
+            builder: (context) => Consumer<SearchProvider>(
+              builder: (context, provider, _) => ModalContainer(
+                padding: EdgeInsets.all(8 * theme.scaling),
+                child: Column(
+                  spacing: 4 * theme.scaling,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (provider.isLoading)
+                      for (int i = 0; i < 4; i++)
+                        _SearchItem(
+                          icon: Icon(Icons.settings_applications),
+                          name: "This is an app",
+                          installed: false,
+                          skeleton: true,
+                          onPressed: () {},
+                        )
+                    else if (provider.searchResult.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text("No search results found.").center(),
+                      )
+                    else ...[
+                      for (final app in provider.searchResult.take(5))
+                        _SearchItem.fromAppModel(
+                          model: app,
+                          onPressed: () {
+                            context.read<NavigationProvider>().openApp(app.id);
+                            closeOverlay(context);
+                            _controller.clear();
+                          },
+                        ),
+                      const Divider(),
+                      _SearchItem(
+                        icon: Icon(Icons.more),
+                        name: "See All (${provider.searchResult.length})",
+                        installed: false,
+                        onPressed: () {
+                          context.read<NavigationProvider>().goSearch();
+                          closeOverlay(context);
+                          _controller.clear();
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           );
@@ -102,13 +143,24 @@ class _SearchItem extends StatelessWidget {
   final Widget icon;
   final String name;
   final bool installed;
+  final bool skeleton;
   final VoidCallback? onPressed;
 
+  factory _SearchItem.fromAppModel({
+    required AppModel model,
+    void Function()? onPressed,
+  }) => _SearchItem(
+    icon: AppIcon(icon: model.icon, size: 30),
+    name: model.name,
+    installed: model.installState == InstallState.installed,
+    onPressed: onPressed,
+  );
+
   const _SearchItem({
-    super.key,
     required this.icon,
     required this.name,
     this.installed = false,
+    this.skeleton = false,
     this.onPressed,
   });
 
@@ -116,15 +168,15 @@ class _SearchItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GhostButton(
       onPressed: onPressed,
-      leading: icon,
+      leading: icon.asSkeleton(enabled: skeleton),
       trailing: installed ? Row(
         spacing: 8 * Theme.of(context).scaling,
         children: [
-          Text("Installed").muted(),
-          Icon(Icons.open_in_new),
+          Text("Installed").muted().asSkeleton(enabled: skeleton),
+          Icon(Icons.open_in_new).asSkeleton(enabled: skeleton),
         ],
-      ) : Icon(Icons.open_in_new),
-      child: Text(name),
+      ) : Icon(Icons.open_in_new).asSkeleton(enabled: skeleton),
+      child: Text(name).asSkeleton(enabled: skeleton),
     );
   }
 }

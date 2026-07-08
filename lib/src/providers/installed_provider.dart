@@ -23,7 +23,7 @@ import '../models/app_model.dart';
 class InstalledProvider extends ChangeNotifier {
   final List<PackageService> _sources;
 
-  List<AppModel> _apps = [];
+  List<AppModel> _apps = const [];
   bool _isLoading = false;
   bool _hasLoaded = false;
   String? _errorMessage;

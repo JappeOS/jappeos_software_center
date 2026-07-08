@@ -17,6 +17,7 @@
 import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../../navigation/nav_item.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/updates_provider.dart';
 
@@ -42,12 +43,16 @@ class _SidebarState extends State<Sidebar> {
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
     final updates = context.watch<UpdatesProvider>();
+    //final search = context.watch<SearchProvider>();
     final theme = Theme.of(context);
     final selectedStyle = ButtonStyle.secondary().copyWith(
       textStyle: (context, states, value) => value.copyWith(
         fontWeight: FontWeight.bold,
       ),
     );
+    if (nav.current == NavItem.search) {
+      _selected = 2;
+    }
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,35 +61,46 @@ class _SidebarState extends State<Sidebar> {
           child: NavigationSidebar(
             spacing: 2 * theme.scaling,
             backgroundColor: theme.colorScheme.sidebar,
-            index: _selected < 5 ? _selected : null,
+            index: _selected < 6 ? _selected : null,
             onSelected: (key) {
               _selected = key;
               switch (_selected) {
                 case 0: nav.goHome();
                 case 1: nav.goExplore();
-                case 2: nav.goInstalled();
-                case 3: nav.goUpdates();
-                case 4: nav.goPreferences();
+                case 2: nav.goSearch();
+                case 3: nav.goInstalled();
+                case 4: nav.goUpdates();
               }
               setState(() {});
             },
             children: [
               NavigationItem(
+                index: 0,
                 selectedStyle: selectedStyle,
                 label: Text("Home"),
                 child: Icon(Icons.home),
               ),
               NavigationItem(
+                index: 1,
                 selectedStyle: selectedStyle,
                 label: Text("Explore"),
                 child: Icon(Icons.explore),
               ),
+              if (_selected == 2)
+                NavigationItem(
+                  index: 2,
+                  selectedStyle: selectedStyle,
+                  label: Text("Search Results"),
+                  child: Icon(Icons.search),
+                ),
               NavigationItem(
+                index: 3,
                 selectedStyle: selectedStyle,
                 label: Text("Installed"),
                 child: Icon(Icons.system_update_alt),
               ),
               NavigationItem(
+                index: 4,
                 selectedStyle: selectedStyle,
                 label: Text("Updates"),
                 child: _buildRedCircle(Icon(Icons.cached), updates.updates.isNotEmpty),
@@ -95,18 +111,18 @@ class _SidebarState extends State<Sidebar> {
         NavigationSidebar(
           spacing: 2 * theme.scaling,
           backgroundColor: theme.colorScheme.sidebar,
-          index: _selected != 5 ? null : _selected,
+          index: _selected != 6 ? null : _selected,
           keepMainAxisSize: true,
           onSelected: (key) {
             _selected = key;
             switch (_selected) {
-              case 5: nav.goPreferences();
+              case 6: nav.goPreferences();
             }
             setState(() {});
           },
           children: [
             NavigationItem(
-              index: 5,
+              index: 6,
               selectedStyle: selectedStyle,
               label: Text("Preferences"),
               child: Icon(Icons.settings),
