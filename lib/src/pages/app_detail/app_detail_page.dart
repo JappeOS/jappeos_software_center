@@ -320,6 +320,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          leading: Icon(Icons.warning),
           title: const Text('Confirm uninstall'),
           content: Text('Uninstall "$appName"?'),
           actions: [
