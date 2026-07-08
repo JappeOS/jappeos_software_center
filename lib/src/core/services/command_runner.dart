@@ -37,7 +37,7 @@ abstract class CommandRunner {
   Future<CommandResult> run(
     String executable,
     List<String> args, {
-    Duration timeout = const Duration(seconds: 15),
+    Duration? timeout = const Duration(seconds: 15),
     Map<String, String>? environment,
     String? workingDirectory,
   });
@@ -86,7 +86,7 @@ class ProcessCommandRunner implements CommandRunner {
   Future<CommandResult> run(
     String executable,
     List<String> args, {
-    Duration timeout = const Duration(seconds: 15),
+    Duration? timeout = const Duration(seconds: 15),
     Map<String, String>? environment,
     String? workingDirectory,
   }) async {
@@ -99,7 +99,7 @@ class ProcessCommandRunner implements CommandRunner {
         runInShell: false,
         environment: environment,
         workingDirectory: workingDirectory,
-      ).timeout(timeout);
+      ).timeout(timeout ?? Duration(days: 1000));
 
       stopwatch.stop();
 
@@ -114,7 +114,7 @@ class ProcessCommandRunner implements CommandRunner {
       throw CommandTimeoutException(
         executable: executable,
         args: args,
-        timeout: timeout,
+        timeout: timeout ?? Duration(days: 1000),
       );
     } on ProcessException catch (error) {
       stopwatch.stop();

@@ -399,7 +399,7 @@ class FlatpakService implements PackageService {
         'install',
         '-y',
         id,
-      ], timeout: _defaultTimeout);
+      ], timeout: null);
     } on CommandStartException {
       throw FlatpakServiceException('Flatpak is not available on this system.');
     }
@@ -419,7 +419,7 @@ class FlatpakService implements PackageService {
         'uninstall',
         '-y',
         id,
-      ], timeout: _defaultTimeout);
+      ], timeout: null);
     } on CommandStartException {
       throw FlatpakServiceException('Flatpak is not available on this system.');
     }
@@ -439,7 +439,7 @@ class FlatpakService implements PackageService {
       if (id != '__all__') {
         args.add(id);
       }
-      result = await _commandRunner.run('flatpak', args, timeout: _defaultTimeout);
+      result = await _commandRunner.run('flatpak', args, timeout: null);
     } on CommandStartException {
       throw FlatpakServiceException('Flatpak is not available on this system.');
     }

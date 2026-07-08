@@ -345,7 +345,7 @@ class PacmanService implements PackageService {
         '-S',
         '--noconfirm',
         id,
-      ], timeout: const Duration(minutes: 10));
+      ], timeout: null);
     } on CommandStartException {
       throw PacmanServiceException(
         'Pacman (or pkexec) is not available on this system.',
@@ -366,7 +366,7 @@ class PacmanService implements PackageService {
         '-Rns',
         '--noconfirm',
         id,
-      ], timeout: const Duration(minutes: 10));
+      ], timeout: null);
     } on CommandStartException {
       throw PacmanServiceException(
         'Pacman (or pkexec) is not available on this system.',
@@ -393,7 +393,7 @@ class PacmanService implements PackageService {
       result = await _commandRunner.run(
         'pkexec',
         args,
-        timeout: const Duration(minutes: 10),
+        timeout: null,
       );
     } on CommandStartException {
       throw PacmanServiceException(
