@@ -22,8 +22,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../models/app_model.dart';
 import '../../models/install_state.dart';
 import '../../providers/explore_provider.dart';
+import '../../providers/installed_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/search_provider.dart';
+import '../../utils.dart';
 import '../../widgets/app_icon.dart';
 
 class SearchBar extends StatefulWidget {
@@ -41,6 +43,14 @@ class _SearchBarState extends State<SearchBar> {
   int _searchGeneration = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<InstalledProvider>().loadIfNeeded();
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -50,6 +60,7 @@ class _SearchBarState extends State<SearchBar> {
   Widget build(BuildContext context) {
     final provider = context.watch<SearchProvider>();
     final theme = Theme.of(context);
+    final iconSize = 27.5 * theme.scaling;
     return TextField(
       controller: _controller,
       features: [
@@ -109,6 +120,14 @@ class _SearchBarState extends State<SearchBar> {
                       for (final app in provider.searchResult.take(5))
                         _SearchItem.fromAppModel(
                           model: app,
+                          iconSize: iconSize,
+                          installed: () {
+                            final isInstalledByList = context.read<InstalledProvider>().apps.any(
+                              (a) => normalizeAppId(a.id) == normalizeAppId(app.id),
+                            );
+                            return isInstalledByList ||
+                                app.installState == InstallState.installed;
+                          }(),
                           onPressed: () {
                             context.read<NavigationProvider>().openApp(app.id);
                             closeOverlay(context);
@@ -117,7 +136,7 @@ class _SearchBarState extends State<SearchBar> {
                         ),
                       const Divider(),
                       _SearchItem(
-                        icon: Icon(Icons.more),
+                        icon: Icon(Icons.more, size: iconSize),
                         name: "See All (${provider.searchResult.length})",
                         installed: false,
                         onPressed: () {
@@ -148,11 +167,13 @@ class _SearchItem extends StatelessWidget {
 
   factory _SearchItem.fromAppModel({
     required AppModel model,
+    double iconSize = 30,
+    bool installed = false,
     void Function()? onPressed,
   }) => _SearchItem(
-    icon: AppIcon(icon: model.icon, size: 30),
+    icon: AppIcon(icon: model.icon, size: iconSize),
     name: model.name,
-    installed: model.installState == InstallState.installed,
+    installed: installed,
     onPressed: onPressed,
   );
 
