@@ -46,6 +46,24 @@ String formatDownloadCount(int? count) {
   return '$count';
 }
 
+String normalizeAppId(String id) {
+  final trimmed = id.trim();
+  if (trimmed.isEmpty) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('app/') || trimmed.startsWith('runtime/')) {
+    final parts = trimmed.split('/');
+    if (parts.length >= 2 && parts[1].trim().isNotEmpty) {
+      return parts[1].trim();
+    }
+  }
+  final branchSep = trimmed.indexOf('//');
+  if (branchSep > 0) {
+    return trimmed.substring(0, branchSep);
+  }
+  return trimmed;
+}
+
 void showError({
   required BuildContext context,
   String title = "Action failed",
