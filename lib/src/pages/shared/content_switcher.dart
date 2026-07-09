@@ -63,7 +63,10 @@ class ContentSwitcher extends StatelessWidget {
         break;
 
       case NavItem.appDetail:
-        page = AppDetailPage(appId: nav.selectedAppId!);
+        page = AppDetailPage(
+          appId: nav.selectedAppId!,
+          install: nav.installSelectedApp,
+        );
         break;
     }
 

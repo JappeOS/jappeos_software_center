@@ -31,8 +31,9 @@ import 'widgets/screenshots_carousel.dart';
 
 class AppDetailPage extends StatefulWidget {
   final String appId;
+  final bool install;
 
-  const AppDetailPage({super.key, required this.appId});
+  const AppDetailPage({super.key, required this.appId, this.install = false});
 
   @override
   State<AppDetailPage> createState() => _AppDetailPageState();
@@ -49,8 +50,18 @@ class _AppDetailPageState extends State<AppDetailPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadDetails();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadDetails();
+      if (widget.install) {
+        if (!mounted) return;
+        final selected = _details[_selectedIndex];
+        final isInstalledByList = context.read<InstalledProvider>().apps.any(
+          (app) => normalizeAppId(app.id) == normalizeAppId(selected.app.id),
+        );
+        final isInstalled = isInstalledByList ||
+            selected.app.installState == InstallState.installed;
+        _performInstallOrUpdate(selected, isInstalled);
+      }
     });
   }
 
@@ -129,6 +140,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
     }
 
     final selected = _details[_selectedIndex];
+
     final displayName = _resolveDisplayName(
       selected,
       exploreProvider.apps,
@@ -136,7 +148,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
     );
     final sources = _details.map((detail) => detail.sourceLabel).toList();
     final isInstalledByList = installedProvider.apps.any(
-      (app) => _normalizeAppId(app.id) == _normalizeAppId(selected.app.id),
+      (app) => normalizeAppId(app.id) == normalizeAppId(selected.app.id),
     );
     final isInstalled = isInstalledByList ||
         selected.app.installState == InstallState.installed;
@@ -344,24 +356,6 @@ class _AppDetailPageState extends State<AppDetailPage> {
     message: message,
   );
 
-  String _normalizeAppId(String id) {
-    final trimmed = id.trim();
-    if (trimmed.isEmpty) {
-      return trimmed;
-    }
-    if (trimmed.startsWith('app/') || trimmed.startsWith('runtime/')) {
-      final parts = trimmed.split('/');
-      if (parts.length >= 2 && parts[1].trim().isNotEmpty) {
-        return parts[1].trim();
-      }
-    }
-    final branchSep = trimmed.indexOf('//');
-    if (branchSep > 0) {
-      return trimmed.substring(0, branchSep);
-    }
-    return trimmed;
-  }
-
   String _resolveDisplayName(
     AppDetailModel detail,
     List<AppModel> exploreApps,
@@ -372,9 +366,9 @@ class _AppDetailPageState extends State<AppDetailPage> {
       return _nameFromId(detail.app.id);
     }
 
-    final normalizedId = _normalizeAppId(detail.app.id);
+    final normalizedId = normalizeAppId(detail.app.id);
     final fromInstalled = installedApps
-        .where((app) => _normalizeAppId(app.id) == normalizedId)
+        .where((app) => normalizeAppId(app.id) == normalizedId)
         .map((app) => app.name.trim())
         .where((name) => name.isNotEmpty)
         .cast<String?>()
@@ -384,7 +378,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
     }
 
     final fromExplore = exploreApps
-        .where((app) => _normalizeAppId(app.id) == normalizedId)
+        .where((app) => normalizeAppId(app.id) == normalizedId)
         .map((app) => app.name.trim())
         .where((name) => name.isNotEmpty)
         .cast<String?>()
@@ -411,7 +405,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   String _nameFromId(String id) {
-    final normalized = _normalizeAppId(id);
+    final normalized = normalizeAppId(id);
     final parts = normalized.split('.');
     return parts.isEmpty ? normalized : parts.last;
   }

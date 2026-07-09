@@ -21,9 +21,11 @@ import '../navigation/nav_item.dart';
 class NavigationProvider extends ChangeNotifier {
   NavItem _current = NavItem.home;
   String? _selectedAppId;
+  bool _installSelectedApp = false;
 
   NavItem get current => _current;
   String? get selectedAppId => _selectedAppId;
+  bool get installSelectedApp => _installSelectedApp;
   String get valueKey => current.toString() + (selectedAppId ?? '');
 
   void goHome() {
@@ -57,8 +59,10 @@ class NavigationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void openApp(String appId) {
+  void openApp(String appId, [bool install = false]) {
+    print("appid: $appId");
     _selectedAppId = appId;
+    _installSelectedApp = install;
     _current = NavItem.appDetail;
     notifyListeners();
   }
