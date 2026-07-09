@@ -14,15 +14,20 @@
 //  You should have received a copy of the GNU Affero General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:jappeos_software_center/src/widgets/app_tile.dart';
+import 'dart:convert';
+
+import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import '../../models/update_model.dart';
+import '../../providers/explore_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/updates_provider.dart';
 import '../../utils.dart';
 import '../../widgets/app_icon.dart';
+import '../../widgets/app_tile.dart';
 import '../../widgets/feedback_state.dart';
 import '../../widgets/section_header.dart';
 import '../shared/page_base.dart';
@@ -38,12 +43,57 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late Future<List<FeaturedItem>> _loadFeaturedFuture;
+
   @override
   void initState() {
     super.initState();
+    _loadFeaturedFuture = _loadFeatured();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<UpdatesProvider>().loadIfNeeded();
     });
+  }
+
+  Future<List<FeaturedItem>> _loadFeatured() async {
+    String data = await DefaultAssetBundle.of(context).loadString("assets/featured/featured.json");
+    final jsonList = jsonDecode(data) as List<dynamic>;
+    List<FeaturedItem> result = [];
+    for (final item in jsonList) {
+      if (item is! Map<String, dynamic>) {
+        continue;
+      }
+      FeaturedItem featured;
+      try {
+        featured = await _featuredFromJson(item);
+      } catch (e) {
+        print("Failed to load featured app item from json: $e");
+        continue;
+      }
+      result.add(featured);
+    }
+    return result;
+  }
+
+  Future<FeaturedItem> _featuredFromJson(Map<String, dynamic> jsonMap) async {
+    final exploreProvider = context.read<ExploreProvider>();
+    await exploreProvider.loadIfNeeded();
+    final appId = jsonMap["appid"] as String;
+    final icon = jsonMap["icon"] as String;
+    try {
+      exploreProvider.apps.firstWhere((app) => app.id == appId);
+    } catch (e) {
+      print("Invalid appid on featured item: $appId");
+      rethrow;
+    }
+    return FeaturedItem(
+      id: appId,
+      title: jsonMap["title"] as String,
+      description: jsonMap["description"] as String,
+      color: FeaturedColor.values.firstWhereOrNull((v) => v.name == jsonMap["color"] as String) ?? FeaturedColor.blue,
+      imageUrl: icon.isNotEmpty ? p.join("assets/featured/", icon) : "",
+      onInstall: () => context.read<NavigationProvider>().openApp(appId, true),
+      onLearnMore: () => context.read<NavigationProvider>().openApp(appId),
+    );
   }
 
   @override
@@ -52,18 +102,30 @@ class _HomePageState extends State<HomePage> {
     final updates = updateProvider.updates;
 
     final children = [
-      FeaturedBanner(
-        item: FeatuedItem(
-          title: "Visual Studio Code",
-          description: "Powerful, open-source code editor with built-in support for debugging and Git.",
-          imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Visual_Studio_Code_1.35_icon.svg/960px-Visual_Studio_Code_1.35_icon.svg.png",
-          onInstall: () {
-            // Handle install action
-          },
-          onLearnMore: () {
-            // Handle learn more action
-          },
-        ),
+      FutureBuilder(
+        future: _loadFeaturedFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return SizedBox.shrink();
+          }
+          final isDone = snapshot.connectionState == ConnectionState.done;
+          return FeaturedBanner(
+            items: [
+              if (isDone)
+                for (final item in snapshot.requireData)
+                  item
+              else
+                FeaturedItem(
+                  id: "",
+                  title: "Sed ut perspiciatis",
+                  description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  imageUrl: "",
+                  onInstall: () {},
+                  onLearnMore: () {},
+                ),
+            ],
+          ).asSkeleton(enabled: !isDone);
+        },
       ),
       SectionHeader(
         title: "Recommended for you",

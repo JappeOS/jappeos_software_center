@@ -1,0 +1,30 @@
+[
+    {
+        "title": "Visual Studio Code",
+        "description": "Powerful, open-source code editor with built-in support for debugging and Git.",
+        "icon": "vscode.svg.png",
+        "color": "blue",
+        "appid": "com.visualstudio.code"
+    },
+    {
+        "title": "LibreOffice",
+        "description": "LibreOffice is a powerful office suite with clean interface and feature-rich tools.",
+        "icon": "libreoffice.svg",
+        "color": "green",
+        "appid": "org.libreoffice.LibreOffice"
+    },
+    {
+        "title": "GIMP",
+        "description": "Community-driven Free Software for high-end image creation and manipulation.",
+        "icon": "gimp.svg",
+        "color": "orange",
+        "appid": "org.gimp.GIMP"
+    },
+    {
+        "title": "Steam",
+        "description": "Steam is a digital distribution platform for PC games by Valve.",
+        "icon": "steam.svg",
+        "color": "gray",
+        "appid": "com.valvesoftware.Steam"
+    }
+]
