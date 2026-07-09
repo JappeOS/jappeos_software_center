@@ -111,7 +111,7 @@ class _AppIconState extends State<AppIcon> {
   Widget _fallback() {
     return SizedBox.square(
       dimension: widget.size,
-      child: Icon(Icons.settings_applications, size: widget.size * 0.82),
+      child: Icon(Icons.settings_applications, size: widget.size),
     );
   }
 
