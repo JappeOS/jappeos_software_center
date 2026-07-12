@@ -109,6 +109,9 @@ class _HomePageState extends State<HomePage> {
             return SizedBox.shrink();
           }
           final isDone = snapshot.connectionState == ConnectionState.done;
+          if (isDone && snapshot.requireData.isEmpty) {
+            return const SizedBox.shrink();
+          }
           return FeaturedBanner(
             items: [
               if (isDone)

@@ -53,7 +53,7 @@ class FeaturedItem {
 class FeaturedBanner extends StatefulWidget {
   final List<FeaturedItem> items;
 
-  const FeaturedBanner({super.key, required this.items});
+  FeaturedBanner({super.key, required this.items}) : assert(items.isNotEmpty);
 
   @override
   State<FeaturedBanner> createState() => _FeaturedBannerState();
@@ -104,7 +104,9 @@ class _FeaturedBannerState extends State<FeaturedBanner> {
   void initState() {
     super.initState();
     final random = Random();
-    final firstPage = random.nextInt(widget.items.length);
+    final firstPage = widget.items.length <= 1
+        ? 0
+        : random.nextInt(widget.items.length);
     _controller = PageController(initialPage: firstPage);
     _currentPage = firstPage;
     _controller.addListener(() {
