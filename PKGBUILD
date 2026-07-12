@@ -1,6 +1,6 @@
 pkgname=jappeos_software_center
-pkgver=1.0.0
-_tag=dev-v1.0.0
+pkgver=1.0.1
+_tag=dev-v1.0.1
 pkgrel=1
 pkgdesc="A GUI app for installing software for JappeOS."
 arch=('x86_64')
