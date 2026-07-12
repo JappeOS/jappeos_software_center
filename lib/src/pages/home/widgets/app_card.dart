@@ -40,14 +40,15 @@ class _AppCardState extends State<AppCard> {
             children: [
               SizedBox.square(
                 dimension: 48,
-                child: Icon(Icons.apps),
+                child: Icon(Icons.apps, size: 42),
               ),
-              SizedBox(width: 8),
+              const Gap(8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
                   children: [
-                    Text("App Name").h4().ellipsis(),
+                    Text("Coming soon").h4().ellipsis(),
                     Text(
                       "Short description of the app.",
                       softWrap: true,
@@ -59,7 +60,7 @@ class _AppCardState extends State<AppCard> {
               ),
             ],
           ),
-          OutlineButton(child: Text("Install"), onPressed: () {}),
+          OutlineButton(onPressed: null, child: const Text("Install")),
         ],
       ),
     );
