@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <strong>Installer app for JappeOS.</strong>
+  <strong>Software management app for JappeOS.</strong>
 </p>
 
 <p align="center">
