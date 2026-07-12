@@ -22,6 +22,8 @@
 
 A GUI app for installing software for JappeOS.
 
+![Screenshot](.github/assets/software_center_ui1.png)
+
 ## Features
 
 * Install, update, uninstall apps
