@@ -43,13 +43,8 @@ class _SidebarState extends State<Sidebar> {
   Widget build(BuildContext context) {
     final nav = context.watch<NavigationProvider>();
     final updates = context.watch<UpdatesProvider>();
-    //final search = context.watch<SearchProvider>();
     final theme = Theme.of(context);
-    final selectedStyle = ButtonStyle.secondary().copyWith(
-      textStyle: (context, states, value) => value.copyWith(
-        fontWeight: FontWeight.bold,
-      ),
-    );
+    final selectedStyle = ButtonStyle.secondary();
     if (nav.current == NavItem.search) {
       _selected = 2;
     }

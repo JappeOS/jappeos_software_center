@@ -63,7 +63,7 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     const title = 'Software Center';
-    return  MultiProvider(
+    return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),
