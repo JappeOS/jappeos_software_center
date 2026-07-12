@@ -45,17 +45,17 @@ class CategoryGrid extends StatelessWidget {
       spacing: 8 * theme.scaling,
       runSpacing: 10 * theme.scaling,
       children: [
-        _buildCategoryButton(theme, "Development", Icons.code, CategoryColor.blue),
-        _buildCategoryButton(theme, "Multimedia", Icons.movie, CategoryColor.green),
-        _buildCategoryButton(theme, "Productivity", Icons.work, CategoryColor.orange),
-        _buildCategoryButton(theme, "Games", Icons.videogame_asset, CategoryColor.purple),
-        _buildCategoryButton(theme, "Education", Icons.school, CategoryColor.yellow),
-        _buildCategoryButton(theme, "Utilities", Icons.build, CategoryColor.gray),
+        _buildCategoryButton(context, theme, "Development", Icons.code, CategoryColor.blue),
+        _buildCategoryButton(context, theme, "Multimedia", Icons.movie, CategoryColor.green),
+        _buildCategoryButton(context, theme, "Productivity", Icons.work, CategoryColor.orange),
+        _buildCategoryButton(context, theme, "Games", Icons.videogame_asset, CategoryColor.purple),
+        _buildCategoryButton(context, theme, "Education", Icons.school, CategoryColor.yellow),
+        _buildCategoryButton(context, theme, "Utilities", Icons.build, CategoryColor.gray),
       ],
     );
   }
 
-  Widget _buildCategoryButton(ThemeData theme, String title, IconData icon, CategoryColor color) {
+  Widget _buildCategoryButton(BuildContext context, ThemeData theme, String title, IconData icon, CategoryColor color) {
     return Theme(
       data: theme.copyWith(
         colorScheme: () => theme.colorScheme.copyWith(
@@ -65,7 +65,23 @@ class CategoryGrid extends StatelessWidget {
         radius: () => 2,
       ),
       child: PrimaryButton(
-        onPressed: () {},
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('Coming soon'),
+                content: const Text('This feature is not implemented yet.'),
+                actions: [
+                  PrimaryButton(
+                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              );
+            },
+          );
+        },
         leading: Icon(icon),
         child: Text(title),
       ),
