@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Software Center
+Comment=Browse and install applications
+Keywords=software;apps;applications;store;install;package;
+Exec=/opt/jappeos_software_center/jappeos_software_center
+Icon=system-software-install
+Type=Application
+Categories=System;Utility;PackageManager;
+StartupNotify=true
+StartupWMClass=jappeos-software-center
