@@ -53,7 +53,7 @@ class _AppIconState extends State<AppIcon> {
       builder: (context, snapshot) {
         final resolved = snapshot.data;
         if (resolved == null || resolved.isEmpty) {
-          return _fallback();
+          return _fallback(snapshot.connectionState != ConnectionState.done);
         }
 
         if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
@@ -65,7 +65,8 @@ class _AppIconState extends State<AppIcon> {
                 width: widget.size,
                 height: widget.size,
                 fit: BoxFit.contain,
-                placeholderBuilder: (context) => _fallback(),
+                errorBuilder: (_, _, _) => _fallback(),
+                placeholderBuilder: (_) => _fallback(true),
               ),
             );
           }
@@ -77,6 +78,7 @@ class _AppIconState extends State<AppIcon> {
               height: widget.size,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => _fallback(),
+              loadingBuilder: (_, _, _) => _fallback(true),
             ),
           );
         }
@@ -89,7 +91,8 @@ class _AppIconState extends State<AppIcon> {
               width: widget.size,
               height: widget.size,
               fit: BoxFit.contain,
-              placeholderBuilder: (context) => _fallback(),
+              errorBuilder: (_, _, _) => _fallback(),
+              placeholderBuilder: (context) => _fallback(true),
             ),
           );
         }
@@ -108,11 +111,11 @@ class _AppIconState extends State<AppIcon> {
     );
   }
 
-  Widget _fallback() {
+  Widget _fallback([bool loading = false]) {
     return SizedBox.square(
       dimension: widget.size,
       child: Icon(Icons.settings_applications, size: widget.size),
-    );
+    ).asSkeleton(enabled: loading);
   }
 
   bool _isSvgPath(String path) {
